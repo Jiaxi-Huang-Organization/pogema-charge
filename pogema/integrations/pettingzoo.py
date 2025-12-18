@@ -15,7 +15,7 @@ class PogemaParallel:
         return self.pogema.get_state()
 
     def __init__(self, grid_config: GridConfig, render_mode='ansi'):
-        self.metadata = {'render_modes': ['ansi'], "name": "pogema"}
+        self.metadata = {'render_modes': ['ansi'], "name": "pogema-charge"}
         self.render_mode = render_mode
         self.pogema = _make_pogema(grid_config)
         self.possible_agents = ["player_" + str(r) for r in range(self.pogema.get_num_agents())]

@@ -20,7 +20,7 @@ POGEMA stands for Partially-Observable Grid Environment for Multiple Agents. It 
 
 Just install from PyPI:
 
-```pip install pogema```
+```pip install pogema-charge```
 
 ## Using Example
 

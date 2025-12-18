@@ -30,14 +30,14 @@ def find_version(*file_paths):
 
 
 setup(
-    name='pogema',
-    author='Alexey Skrynnik',
+    name='pogema-charge',
+    author='Jiaxi Huang',
     license='MIT',
     version=find_version("pogema", "__init__.py"),
-    description='Partially Observable Grid Environment for Multiple Agents',
+    description='Buttery-Charge Branch for Partially Observable Grid Environment for Multiple Agents',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/AIRI-Institute/pogema',
+    url='https://github.com/Jiaxi-Huang-Organization/pogema-charge',
     install_requires=[
         "gymnasium==0.28.1",
         "numpy>1.23.5,<=1.26.4",
