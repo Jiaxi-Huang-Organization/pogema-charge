@@ -4,14 +4,12 @@ from collections import defaultdict
 import numpy as np
 
 from pogema import GridConfig
-
+#from grid_config import GridConfig
 
 def generate_obstacles(grid_config: GridConfig, rnd=None):
     if rnd is None:
         rnd = np.random.default_rng(grid_config.seed)
     return rnd.binomial(1, grid_config.density, (grid_config.height, grid_config.width))
-
-
 def bfs(grid, moves, start_id, free_cell):
     q = []
     current_id = start_id
@@ -109,10 +107,11 @@ def generate_from_possible_positions(grid_config: GridConfig):
     rng = np.random.default_rng(grid_config.seed)
     rng.shuffle(grid_config.possible_agents_xy)
     rng.shuffle(grid_config.possible_targets_xy)
-    return grid_config.possible_agents_xy[:grid_config.num_agents], grid_config.possible_targets_xy[:grid_config.num_agents]
+    rng.shuffle(grid_config.possible_charges_xy)
+    return grid_config.possible_agents_xy[:grid_config.num_agents], grid_config.possible_targets_xy[:grid_config.num_agents], grid_config.possible_charges_xy
     
 
-def generate_positions_and_targets_fast(obstacles, grid_config):
+def generate_positions_targets_and_charges_fast(obstacles, grid_config):
     c = grid_config
     grid = obstacles.copy()
 
@@ -123,7 +122,17 @@ def generate_positions_and_targets_fast(obstacles, grid_config):
     order = [(x, y) for x in range(height) for y in range(width) if grid[x, y] >= start_id]
     np.random.default_rng(c.seed).shuffle(order)
 
-    return placing(order=order, components=components, grid=grid, start_id=start_id, num_agents=c.num_agents)
+    positions_xy, finishes_xy = placing(order=order, components=components, grid=grid, start_id=start_id, num_agents=c.num_agents)
+
+    charges_xy = []
+    used_cells = set(positions_xy + finishes_xy)  # 避免与 agent 的位置冲突
+    for x, y in order:
+        if (x, y) in used_cells or len(charges_xy) >= c.num_charges:
+            continue
+        charges_xy.append((x, y))
+        used_cells.add((x, y))  # 标记为已使用
+
+    return positions_xy, finishes_xy, charges_xy
 
 def generate_from_possible_targets(rnd_generator, possible_positions, position):
     new_target = tuple(rnd_generator.choice(possible_positions, 1)[0])
@@ -139,7 +148,11 @@ def generate_new_target(rnd_generator, point_to_component, component_to_points, 
         new_target = tuple(*rnd_generator.choice(component, 1))
     return new_target
 
-
+def generate_from_possible_charges(rnd_generator, possible_charges, position):
+    new_charge = tuple(rnd_generator.choice(possible_charges, 1)[0])
+    while new_charge == position:
+        new_charge = tuple(rnd_generator.choice(possible_charges, 1)[0])
+    return new_charge
 def get_components(grid_config, obstacles, positions_xy, target_xy):
     c = grid_config
     grid = obstacles.copy()
@@ -160,7 +173,7 @@ def get_components(grid_config, obstacles, positions_xy, target_xy):
 def time_it(func, num_iterations):
     start = time.monotonic()
     for index in range(num_iterations):
-        grid_config = GridConfig(num_agents=64, size=64, seed=index)
+        grid_config = GridConfig(num_agents=64, num_charges=8, size=64, seed=index)
         obstacles = generate_obstacles(grid_config)
         result = func(obstacles, grid_config, )
         if index == 0 and num_iterations > 1:
@@ -172,8 +185,8 @@ def time_it(func, num_iterations):
 
 def main():
     num_iterations = 1000
-    time_it(generate_positions_and_targets_fast, num_iterations=1)
-    print('fast:', time_it(generate_positions_and_targets_fast, num_iterations=num_iterations))
+    time_it(generate_positions_targets_and_charges_fast, num_iterations=1)
+    print('fast:', time_it(generate_positions_targets_and_charges_fast, num_iterations=num_iterations))
 
 
 if __name__ == '__main__':

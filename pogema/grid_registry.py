@@ -24,6 +24,7 @@ class RegisteredGrid:
         obstacles = []
         agents = {}
         targets = {}
+        charges = {}
         for idx, line in enumerate(grid_str.split()):
             row = []
             for char in line:
@@ -37,27 +38,32 @@ class RegisteredGrid:
                 elif 'a' <= char <= 'z':
                     agents[char.lower()] = len(obstacles), len(row)
                     row.append(self.FREE)
+                elif char == '1':
+                    charges[char.lower()] = len(obstacles), len(row)
                 else:
                     raise KeyError(f"Unsupported symbol '{char}' at line {idx}")
             if row:
                 if obstacles:
                     assert len(obstacles[-1]) == len(row), f"Wrong string size for row {idx};"
                 obstacles.append(row)
-        return obstacles, agents, targets
+        return obstacles, agents, targets, charges
 
-    def __init__(self, name: str, grid_str: str = None, agents_positions: list = None, agents_targets: list = None):
+    def __init__(self, name: str, grid_str: str = None, agents_positions: list = None, agents_targets: list = None, charge_stations: list = None):
         self.name = name
         self.grid_str = grid_str
         self.agents_positions = agents_positions
         self.agents_targets = agents_targets
+        self.charge_stations = charge_stations
 
-        self.obstacles, agents, targets = self.str_to_grid(grid_str)
+        self.obstacles, agents, targets, charges = self.str_to_grid(grid_str)
         self.obstacles = np.array(self.obstacles, dtype=np.int32)
 
         if agents_positions and agents:
             raise ValueError("Agents positions are already defined in the grid string!")
         if agents_targets and targets:
             raise ValueError("Agents targets are already defined in the grid string!")
+        if charge_stations and charges:
+            raise ValueError("Charge stations are already defined in the grid string!")
 
         if agents:
             self.agents_xy = []
@@ -72,9 +78,17 @@ class RegisteredGrid:
                 self.targets_xy.append([x, y])
         else:
             self.targets_xy = agents_targets
+        
+        if charges:
+            self.charges_xy = []
+            for _, (x, y) in sorted(charges.items()):
+                self.charges_xy.append([x, y])
+        else:
+            self.charges_xy = charge_stations
+
         if in_registry(name):
             raise ValueError(f"Grid with name {self.name} already registered!")
-        check_grid(self.obstacles, self.agents_xy, self.targets_xy)
+        check_grid(self.obstacles, self.agents_xy, self.targets_xy, self.charges_xy)
 
         register_grid(self)
 

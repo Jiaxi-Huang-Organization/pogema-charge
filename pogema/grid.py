@@ -24,9 +24,9 @@ class Grid:
             self.obstacles = get_grid(self.config.map_name).get_obstacles()
         self.obstacles = self.obstacles.astype(np.int32)
 
-        if grid_config.targets_xy and grid_config.agents_xy:
+        if grid_config.targets_xy and grid_config.agents_xy and grid_config.charge_stations_xy:
             self.starts_xy = grid_config.agents_xy
-
+            self.charges_xy = grid_config.charge_stations_xy
             if isinstance(grid_config.targets_xy[0][0], (list, tuple)):
                 self.finishes_xy = [sequence[0] for sequence in grid_config.targets_xy]
             else:
@@ -36,8 +36,13 @@ class Grid:
                 raise IndexError("Can't create task. Please provide agents_xy and targets_xy of the same size.")
             if grid_config.num_agents > len(self.starts_xy):
                 raise IndexError(f"Not enough agents_xy and targets_xy to place {grid_config.num_agents} agents")
+            if len(self.charge_stations_xy) == 0:
+                raise IndexError("Can't create task. Please provide charge_stations_xy at least one.")
             self.starts_xy = self.starts_xy[:grid_config.num_agents]
             self.finishes_xy = self.finishes_xy[:grid_config.num_agents]
+
+            self.charges_xy = self.charges_xy
+            #[TODO]: add replaceing with free cell on charge stations
             for start_xy, finish_xy in zip(self.starts_xy, self.finishes_xy):
                 s_x, s_y = start_xy
                 f_x, f_y = finish_xy
@@ -49,10 +54,18 @@ class Grid:
                     warnings.warn(f"There is an obstacle on a finish point ({f_x}, {f_y}), replacing with free cell",
                                   Warning, stacklevel=2)
                 self.obstacles[f_x, f_y] = grid_config.FREE
-        elif grid_config.possible_agents_xy and grid_config.possible_targets_xy:
-            self.starts_xy, self.finishes_xy = generate_from_possible_positions(self.config)
+            for charge_xy in self.charges_xy:
+                c_x, c_y = charge_xy
+                if self.config.map is not None and self.obstacles[c_x, c_y] == grid_config.OBSTACLE:
+                    warnings.warn(f"There is an obstacle on a charge point ({c_x}, {c_y}), replacing with free cell",
+                                  Warning, stacklevel=2)
+                self.obstacles[c_x, c_y] = grid_config.FREE
+        elif grid_config.possible_agents_xy and grid_config.possible_targets_xy and grid_config.possible_charges_xy:
+            #[TODO]: modify the function with charges_xy
+            self.starts_xy, self.finishes_xy, self.charges_xy = generate_from_possible_positions(self.config)
         else:
-            self.starts_xy, self.finishes_xy = generate_positions_and_targets_fast(self.obstacles, self.config)
+            #[TODO]: modify the function with charges_xy
+            self.starts_xy, self.finishes_xy, self.charges_xy = generate_positions_and_targets_fast(self.obstacles, self.config)
 
         if len(self.starts_xy) != len(self.finishes_xy):
             for attempt in range(num_retries):
@@ -78,6 +91,11 @@ class Grid:
         self.positions_xy = self.starts_xy
         self._initial_xy = deepcopy(self.starts_xy)
         self.is_active = {agent_id: True for agent_id in range(self.config.num_agents)}
+        #[TODO]: agent battery management
+        self.initial_battery = [
+            self.grid_config.height + self.grid_config.width for _ in range(self.config.num_agents)
+        ]
+        self.battery = self.initial_battery.copy()
 
     def add_artificial_border(self):
         gc = self.config
@@ -147,10 +165,12 @@ class Grid:
 
     def get_targets_xy_relative(self):
         return self.to_relative(self.finishes_xy, self._initial_xy)
-
+    def get_charges_xy_relative(self):
+        return self.to_relative(self.charges_xy, self._initial_xy)
     def get_targets_xy(self, only_active=False, ignore_borders=False):
         return self._prepare_positions(deepcopy(self.finishes_xy), only_active, ignore_borders)
-
+    def get_charges_xy(self, only_active=False, ignore_borders=False):
+        return self._prepare_positions(deepcopy(self.charges_xy), only_active, ignore_borders)
     def _normalize_coordinates(self, coordinates):
         gc = self.config
 
@@ -246,11 +266,21 @@ class Grid:
                 x += dx
                 y += dy
                 self.positions[x, y] = self.config.OBSTACLE
+
+                # 消耗电量
+                self.battery[agent_id] -= self.config.battery_decrement
+
+                # 检查是否到达充电站
+                if (x, y) in self.charges_xy:
+                    self.battery[agent_id] += self.config.charge_increment
+                    self.battery[agent_id] = min(self.battery[agent_id], self.initial_battery[agent_id])
+
         self.positions_xy[agent_id] = (x, y)
 
     def on_goal(self, agent_id):
         return self.positions_xy[agent_id] == self.finishes_xy[agent_id]
-
+    def run_out_battery(self, agent_id):
+        return self.battery[agent_id] <= 0
     def is_active(self, agent_id):
         return self.is_active[agent_id]
 

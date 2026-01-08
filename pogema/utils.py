@@ -13,11 +13,11 @@ def grid_to_str(grid):
     return '\n'.join(''.join('.' if cell == 0 else '#' for cell in row) for row in grid)
 
 
-def check_grid(obstacles, agents_xy, targets_xy):
+def check_grid(obstacles, agents_xy, targets_xy, charge_stations_xy):
     if bool(agents_xy) != bool(targets_xy):
         raise AgentsTargetsSizeError("Agents and targets must be defined together/undefined together!")
 
-    if not agents_xy or not targets_xy:
+    if not agents_xy or not targets_xy or not charge_stations_xy:
         return
 
     if len(agents_xy) != len(targets_xy):
@@ -27,24 +27,29 @@ def check_grid(obstacles, agents_xy, targets_xy):
     for i in range(len(agents_xy)):
         for j in range(i + 1, len(agents_xy)):
             if agents_xy[i] == agents_xy[j]:
-                raise ValueError(f"Agents can't overlap! {agents_xy[i]} is in both {i} and {j} position.")
+                raise ValueError(f"Agents can't overlap! position {agents_xy[i]} is in both occupied by Agent {i} and Agent {j} .")
 
-    for start_xy, finish_xy in zip(agents_xy, targets_xy):
+    for start_xy, finish_xy, charges_xy in zip(agents_xy, targets_xy, charge_stations_xy):
         s_x, s_y = start_xy
         if obstacles[s_x, s_y]:
             raise KeyError(f'Cell is {s_x, s_y} occupied by obstacle.')
         f_x, f_y = finish_xy
         if obstacles[f_x, f_y]:
             raise KeyError(f'Cell is {f_x, f_y} occupied by obstacle.')
+        c_x, c_y = charges_xy
+        if obstacles[c_x, c_y]:
+            raise KeyError(f'Cell is {c_x, c_y} occupied by obstacle.')
 
-    # todo check connectivity of starts and finishes
+    # [TODO] check connectivity of starts and finishes
 
 
-def render_grid(obstacles, positions_xy=None, targets_xy=None, is_active=None, mode='human'):
+def render_grid(obstacles, positions_xy=None, targets_xy=None, charge_stations_xy=None, is_active=None, mode='human'):
     if positions_xy is None:
         positions_xy = []
     if targets_xy is None:
         targets_xy = []
+    if charge_stations_xy is None:
+        charge_stations_xy = []
     if is_active is None:
         if positions_xy:
             is_active = [True] * len(positions_xy)
@@ -59,19 +64,23 @@ def render_grid(obstacles, positions_xy=None, targets_xy=None, is_active=None, m
     chars = string.digits + string.ascii_letters + string.punctuation
     positions_map = {(x, y): id_ for id_, (x, y) in enumerate(positions_xy) if is_active[id_]}
     finishes_map = {(x, y): id_ for id_, (x, y) in enumerate(targets_xy) if is_active[id_]}
+    charges_map = {(x, y): id_ for id_, (x, y) in enumerate(charge_stations_xy)}
     for line_index, line in enumerate(obstacles):
         out = ''
         for cell_index, cell in enumerate(line):
             if cell == CommonSettings().FREE:
                 agent_id = positions_map.get((line_index, cell_index), None)
                 finish_id = finishes_map.get((line_index, cell_index), None)
-
+                charge_id = charges_map.get((line_index, cell_index), None)
                 if agent_id is not None:
-                    out += str(gym_utils.colorize(' ' + chars[agent_id % len(chars)] + ' ', color='red', bold=True,
-                                                  highlight=False))
+                    out += str(
+                        gym_utils.colorize(' ' + chars[agent_id % len(chars)] + ' ', color='red', bold=True, highlight=False))
                 elif finish_id is not None:
                     out += str(
-                        gym_utils.colorize('|' + chars[finish_id % len(chars)] + '|', 'white', highlight=False))
+                        gym_utils.colorize('|' + chars[finish_id % len(chars)] + '|', 'white', highlight=False))    
+                elif charge_id is not None:
+                    out += str(
+                        gym_utils.colorize('|' + chars[charge_id % len(chars)] + '|', 'green', highlight=False))
                 else:
                     out += str(gym_utils.colorize(str(' . '), 'white', highlight=False))
             else:

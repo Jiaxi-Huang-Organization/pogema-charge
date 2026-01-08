@@ -14,11 +14,17 @@ class GridConfig(CommonSettings, ):
     height: Optional[int] = None
     size: int = 8
     density: float = 0.3
+    charge_increment: int = 3
+    battery_decrement: int = 1
     obs_radius: int = 5
     agents_xy: Optional[list] = None
+    #[TODO]: add initial setting of position of charge station(color dynamic shine)
+    charge_stations_xy: Optional[list] = None
     targets_xy: Optional[list] = None
     num_agents: Optional[int] = None
+    num_charges: Optional[int] = None
     possible_agents_xy: Optional[list] = None
+    possible_charges_xy: Optional[list] = None
     possible_targets_xy: Optional[list] = None
     collision_system: Literal['block_both', 'priority', 'soft'] = 'priority'
     persistent: bool = False
@@ -64,6 +70,10 @@ class GridConfig(CommonSettings, ):
                         cls.check_positions(agent_goals, width, height)
                 else:
                     cls.check_positions(targets_xy, width, height)
+            
+            charge_stations_xy = values.get('charge_stations_xy')
+            if charge_stations_xy is not None:
+                cls.cheack_position(charge_stations_xy, width, height)
         
         return values
 
@@ -97,7 +107,17 @@ class GridConfig(CommonSettings, ):
     def density_restrictions(cls, v):
         assert 0.0 <= v <= 1, "density must be in [0, 1]"
         return v
-
+    
+    @validator('charge_increment')
+    def charge_increment_restrictions(cls, v):
+        assert 1 <= v <= 100, "charge_increment must be in [1, 100]"
+        return v
+    
+    @validator('battery_decrement')
+    def battery_decrement_restrictions(cls, v):
+        assert 1 <= v <= 100, "battery_decrement must be in [1, 100]"
+        return v
+         
     @validator('agents_xy')
     def agents_xy_validation(cls, v, values):
         if v is not None:
@@ -161,6 +181,16 @@ class GridConfig(CommonSettings, ):
                 v = 1
         assert 1 <= v <= 10000000, "num_agents must be in [1, 10000000]"
         return v
+    
+    @validator('num_charges', always=True)
+    def num_charges_must_be_positive(cls, v, values):
+        if v is None:
+            if values['charge_stations_xy']:
+                v = len(values['charge_stations_xy'])
+            else:
+                v = 1
+        assert 1 <= v <= 10000000, "num_charges must be in [1, 10000000]"
+        return v
 
     @validator('obs_radius')
     def obs_radius_must_be_positive(cls, v):
@@ -172,7 +202,7 @@ class GridConfig(CommonSettings, ):
         if v is None:
             return None
         if isinstance(v, str):
-            v, agents_xy, targets_xy, possible_agents_xy, possible_targets_xy = cls.str_map_to_list(v, values['FREE'],
+            v, agents_xy, targets_xy, charges_xy, possible_agents_xy, possible_targets_xy, possible_charges_xy = cls.str_map_to_list(v, values['FREE'],
                                                                                                     values['OBSTACLE'])
             if agents_xy and targets_xy and values.get('agents_xy') is not None and values.get(
                     'targets_xy') is not None:
@@ -180,14 +210,16 @@ class GridConfig(CommonSettings, ):
                 Either with parameters or with a map.""")
             if (agents_xy or targets_xy) and (possible_agents_xy or possible_targets_xy):
                 raise KeyError("""Can't create task. Mark either possible locations or precise ones.""")
-            elif agents_xy and targets_xy:
+            elif agents_xy and targets_xy and charges_xy:
                 values['agents_xy'] = agents_xy
                 values['targets_xy'] = targets_xy
+                values['charge_stations_xy'] = charges_xy
                 values['num_agents'] = len(agents_xy)
             elif (values.get('agents_xy') is None or values.get(
-                    'targets_xy') is None) and possible_agents_xy and possible_targets_xy:
+                    'targets_xy') is None) and possible_agents_xy and possible_targets_xy and possible_charges_xy:
                 values['possible_agents_xy'] = possible_agents_xy
                 values['possible_targets_xy'] = possible_targets_xy
+                values['possible_charges_xy'] = possible_charges_xy
         
         height = len(v)
         width = 0
@@ -210,15 +242,20 @@ class GridConfig(CommonSettings, ):
     @validator('possible_targets_xy')
     def possible_targets_xy_validation(cls, v):
         return v
+    @validator('possible_charges_xy')
+    def possible_charges_xy_validation(cls, v):
+        return v
 
     @staticmethod
     def str_map_to_list(str_map, free, obstacle):
         obstacles = []
         agents = {}
         targets = {}
+        charges = {}
         possible_agents_xy = []
         possible_targets_xy = []
-        special_chars = {'@', '$', '!'}
+        possible_charges_xy = []
+        special_chars = {'@', '$', '!',''}
 
         for row_idx, line in enumerate(str_map.split()):
             row = []
@@ -237,6 +274,8 @@ class GridConfig(CommonSettings, ):
                         possible_agents_xy.append(position)
                     elif char == '$':
                         possible_targets_xy.append(position)
+                    elif char == '!':
+                        possible_charges_xy.append(position)
                 elif 'A' <= char <= 'Z':
                     targets[char.lower()] = position
                     row.append(free)
@@ -247,6 +286,10 @@ class GridConfig(CommonSettings, ):
                     row.append(free)
                     possible_agents_xy.append(position)
                     possible_targets_xy.append(position)
+                elif char == '1':
+                    charges[char] = position
+                    row.append(free)
+                    possible_charges_xy.append(position)
                 else:
                     raise KeyError(f"Unsupported symbol '{char}' at line {row_idx}")
 
@@ -256,13 +299,14 @@ class GridConfig(CommonSettings, ):
 
         agents_xy = [[x, y] for _, (x, y) in sorted(agents.items())]
         targets_xy = [[x, y] for _, (x, y) in sorted(targets.items())]
+        charges_xy = [[x, y] for _, (x, y) in sorted(charges.items())]
 
         assert len(targets_xy) == len(agents_xy), "Mismatch in number of agents and targets."
-
+        assert len(charges_xy) > 0, "Must define at least one charge station."
         if not any(char in special_chars for char in str_map):
-            possible_agents_xy, possible_targets_xy = None, None
+            possible_agents_xy, possible_targets_xy, possible_charges_xy = None, None, None
 
-        return obstacles, agents_xy, targets_xy, possible_agents_xy, possible_targets_xy
+        return obstacles, agents_xy, targets_xy, charges_xy, possible_agents_xy, possible_targets_xy, possible_charges_xy
 
     def update_config(self, **kwargs):
         current_values = self.dict()
