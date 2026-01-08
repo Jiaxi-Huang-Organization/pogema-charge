@@ -100,9 +100,11 @@ class RegisteredGrid:
 
     def get_targets_xy(self):
         return self.targets_xy
+    def get_charges_xy(self):
+        return self.charges_xy
 
     def render(self):
-        render_grid(obstacles=self.get_obstacles(), positions_xy=self.get_agents_xy(), targets_xy=self.get_targets_xy())
+        render_grid(obstacles=self.get_obstacles(), positions_xy=self.get_agents_xy(), targets_xy=self.get_targets_xy(), charges_xy=self.get_charges_xy())
 
 
 def register_grid(rg: RegisteredGrid):

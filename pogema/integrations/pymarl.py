@@ -16,6 +16,7 @@ class PyMarlPogema:
         self.max_episode_steps = gc.max_episode_steps
         self.episode_limit = gc.max_episode_steps
         self.n_agents = self.env.get_num_agents()
+        self.n_charges = self.env.get_num_charges()
 
         self.spec = None
 
@@ -79,6 +80,7 @@ class PyMarlPogema:
                     "obs_shape": self.get_obs_size(),
                     "n_actions": self.get_total_actions(),
                     "n_agents": self.n_agents,
+                    "n_charges": self.n_charges,
                     "episode_limit": self.episode_limit,
                     }
         return env_info

@@ -3,7 +3,7 @@ import warnings
 
 import numpy as np
 
-from pogema.generator import generate_obstacles, generate_positions_and_targets_fast, \
+from pogema.generator import generate_obstacles, generate_positions_targets_and_charges_fast, \
     get_components, generate_from_possible_positions
 from .grid_config import GridConfig
 from .grid_registry import in_registry, get_grid
@@ -65,7 +65,7 @@ class Grid:
             self.starts_xy, self.finishes_xy, self.charges_xy = generate_from_possible_positions(self.config)
         else:
             #[TODO]: modify the function with charges_xy
-            self.starts_xy, self.finishes_xy, self.charges_xy = generate_positions_and_targets_fast(self.obstacles, self.config)
+            self.starts_xy, self.finishes_xy, self.charges_xy = generate_positions_targets_and_charges_fast(self.obstacles, self.config)
 
         if len(self.starts_xy) != len(self.finishes_xy):
             for attempt in range(num_retries):
@@ -74,7 +74,7 @@ class Grid:
                     break
                 if self.config.map is None:
                     self.obstacles = generate_obstacles(self.config)
-                self.starts_xy, self.finishes_xy = generate_positions_and_targets_fast(self.obstacles, self.config)
+                self.starts_xy, self.finishes_xy = generate_positions_targets_and_charges_fast(self.obstacles, self.config)
 
         if not self.starts_xy or not self.finishes_xy or len(self.starts_xy) != len(self.finishes_xy):
             raise OverflowError(
@@ -93,7 +93,7 @@ class Grid:
         self.is_active = {agent_id: True for agent_id in range(self.config.num_agents)}
         #[TODO]: agent battery management
         self.initial_battery = [
-            self.grid_config.height + self.grid_config.width for _ in range(self.config.num_agents)
+            self.config.height + self.config.width for _ in range(self.config.num_agents)
         ]
         self.battery = self.initial_battery.copy()
 
@@ -207,13 +207,35 @@ class Grid:
         r = self.config.obs_radius
         return self.obstacles[x - r:x + r + 1, y - r:y + r + 1].astype(np.float32)
 
+    def get_charges(self, agent_id):
+        x, y = self.positions_xy[agent_id]
+        directions = []
+        for cx, cy in self.charges_xy:
+            if x == cx and y == cy:
+                return 0.0, 0.0
+            rx, ry = cx - x, cy - y
+            dist = np.sqrt(rx ** 2 + ry ** 2)
+            directions.append((rx / dist, ry / dist))
+        return directions
+    def get_square_charges(self, agent_id):
+        c = self.config
+        full_size = self.config.obs_radius * 2 + 1
+        result = np.zeros((full_size, full_size))
+        x, y = self.positions_xy[agent_id]
+        for cx, cy in self.charges_xy:
+            dx, dy = x - cx, y - cy
+            
+            dx = min(dx, c.obs_radius) if dx >= 0 else max(dx, -c.obs_radius)
+            dy = min(dy, c.obs_radius) if dy >= 0 else max(dy, -c.obs_radius)
+            result[c.obs_radius - dx, c.obs_radius - dy] = 1
+        return result.astype(np.float32)
+
     def get_positions(self, agent_id):
         x, y = self.positions_xy[agent_id]
         r = self.config.obs_radius
         return self.positions[x - r:x + r + 1, y - r:y + r + 1].astype(np.float32)
 
     def get_target(self, agent_id):
-
         x, y = self.positions_xy[agent_id]
         fx, fy = self.finishes_xy[agent_id]
         if x == fx and y == fy:
@@ -234,9 +256,11 @@ class Grid:
         dy = min(dy, c.obs_radius) if dy >= 0 else max(dy, -c.obs_radius)
         result[c.obs_radius - dx, c.obs_radius - dy] = 1
         return result.astype(np.float32)
+    
+
 
     def render(self, mode='human'):
-        render_grid(self.obstacles, self.positions_xy, self.finishes_xy, self.is_active, mode=mode)
+        render_grid(self.obstacles, self.positions_xy, self.finishes_xy, self.charges_xy, self.is_active, mode=mode)
 
     def move_agent_to_cell(self, agent_id, x, y):
         if self.positions[self.positions_xy[agent_id]] == self.config.FREE:

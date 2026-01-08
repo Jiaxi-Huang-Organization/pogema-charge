@@ -43,13 +43,13 @@ def check_grid(obstacles, agents_xy, targets_xy, charge_stations_xy):
     # [TODO] check connectivity of starts and finishes
 
 
-def render_grid(obstacles, positions_xy=None, targets_xy=None, charge_stations_xy=None, is_active=None, mode='human'):
+def render_grid(obstacles, positions_xy=None, targets_xy=None, charges_xy=None, is_active=None, mode='human'):
     if positions_xy is None:
         positions_xy = []
     if targets_xy is None:
         targets_xy = []
-    if charge_stations_xy is None:
-        charge_stations_xy = []
+    if charges_xy is None:
+        charges_xy = []
     if is_active is None:
         if positions_xy:
             is_active = [True] * len(positions_xy)
@@ -64,7 +64,7 @@ def render_grid(obstacles, positions_xy=None, targets_xy=None, charge_stations_x
     chars = string.digits + string.ascii_letters + string.punctuation
     positions_map = {(x, y): id_ for id_, (x, y) in enumerate(positions_xy) if is_active[id_]}
     finishes_map = {(x, y): id_ for id_, (x, y) in enumerate(targets_xy) if is_active[id_]}
-    charges_map = {(x, y): id_ for id_, (x, y) in enumerate(charge_stations_xy)}
+    charges_map = {(x, y): id_ for id_, (x, y) in enumerate(charges_xy)}
     for line_index, line in enumerate(obstacles):
         out = ''
         for cell_index, cell in enumerate(line):

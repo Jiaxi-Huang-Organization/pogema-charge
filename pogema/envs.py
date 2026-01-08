@@ -56,12 +56,11 @@ class PogemaBase(gymnasium.Env):
         :param agent_id:
         :return:
         """
-        #[TODO]: add charge station in the observation space
         return np.concatenate([
             self.grid.get_obstacles_for_agent(agent_id)[None],
             self.grid.get_positions(agent_id)[None],
             self.grid.get_square_target(agent_id)[None],
-            self.grid.get_charge_stations_xy(agent_id)[None],
+            self.grid.get_square_charges(agent_id)[None],
         ])
 
     def check_reset(self):
@@ -94,6 +93,13 @@ class PogemaBase(gymnasium.Env):
         :return:
         """
         return self.grid_config.num_agents
+    
+    def get_num_charges(self):
+        """
+        Returns the number of charge stations in the environment.
+        :return:
+        """
+        return self.grid_config.num_charges
 
 
 class Pogema(PogemaBase):
@@ -102,7 +108,6 @@ class Pogema(PogemaBase):
         self.was_on_goal = None
         self.was_run_out_battery = None
         full_size = self.grid_config.obs_radius * 2 + 1
-        #[TODO]: add charge station in the observation space
         if self.grid_config.observation_type == 'default':
             self.observation_space = gymnasium.spaces.Box(-1.0, 1.0, shape=(3, full_size, full_size))
         elif self.grid_config.observation_type == 'POMAPF':
@@ -144,7 +149,7 @@ class Pogema(PogemaBase):
             if on_goal and self.grid.is_active[agent_idx]:
                 rewards.append(1.0)
             #[TODO]: need to check
-            else if run_out_battery and self.grid.is_active[agent_idx]:
+            elif run_out_battery and self.grid.is_active[agent_idx]:
                 rewards.append(-1.0)
             else:
                 rewards.append(0.0)
@@ -191,15 +196,14 @@ class Pogema(PogemaBase):
         elif self.grid_config.observation_type == 'MAPF':
             results = self._pomapf_obs()
             global_obstacles = self.grid.get_obstacles()
-            #[TODO]: add get_charge_staions
-            global_charge_stations = self.grid.get_charges_xy()
+            global_charges_xy = self.grid.get_charges_xy()
             global_agents_xy = self.grid.get_agents_xy()
             global_targets_xy = self.grid.get_targets_xy()
 
             for agent_idx in range(self.grid_config.num_agents):
                 result = results[agent_idx]
                 result.update(global_obstacles=global_obstacles)
-                result.update(global_charge_stations=global_charge_stations)
+                result.update(global_charges_xy=global_charges_xy)
                 result['global_xy'] = global_agents_xy[agent_idx]
                 result['global_target_xy'] = global_targets_xy[agent_idx]
 
@@ -214,11 +218,10 @@ class Pogema(PogemaBase):
         charges_xy_relative = self.grid.get_charges_xy_relative()
         for agent_idx in range(self.grid_config.num_agents):
             result = {'obstacles': self.grid.get_obstacles_for_agent(agent_idx),
-                      'charge_stations': self.grid.get_charge_stations_for_agent(agent_idx),
+                      #'charge_stations': self.grid.get_charge_stations_for_agent(agent_idx),
                       'agents': self.grid.get_positions(agent_idx),
                       'xy': agents_xy_relative[agent_idx],
                       'target_xy': targets_xy_relative[agent_idx],
-                      #[TODO]: add get_charge_stations for agent
                       'charge_xy': charges_xy_relative[agent_idx],
                       }
 
@@ -431,7 +434,7 @@ class PogemaLifeLong(Pogema):
 
         for agent_idx in range(self.grid_config.num_agents):
             on_goal = self.grid.on_goal(agent_idx)
-            #[TODO]: need to implement
+            #[TODO]: lifelong need to implement after non-lifelong env
             if on_goal and self.grid.is_active[agent_idx]:
                 rewards.append(1.0)
             else:
