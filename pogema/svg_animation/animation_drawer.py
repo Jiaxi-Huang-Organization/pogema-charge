@@ -113,10 +113,13 @@ class AnimationDrawer:
 
         agents = []
         targets = []
+        #[NOTE]: shape of charge differ from agents and targets
+        charges = []
 
         if gh.config.show_agents:
             agents = self.create_agents(gh)
             targets = self.create_targets(gh)
+            charges = self.create_charges(gh)
             if gh.config.static:
                 agents = self.create_static_agents(gh)
                 if gh.config.egocentric_idx is not None:
@@ -130,7 +133,7 @@ class AnimationDrawer:
             grid_lines = self.create_grid_lines(gh, render_width, render_height)
             for line in grid_lines:
                 drawing.add_element(line)
-        for obj in [*obstacles, *agents, *targets]:
+        for obj in [*obstacles, *agents, *targets, *charges]:
             drawing.add_element(obj)
 
         if gh.config.egocentric_idx is not None:
@@ -464,3 +467,25 @@ class AnimationDrawer:
             target = Circle(**circle_settings)
             targets.append(target)
         return targets
+
+    def create_charges(self, grid_holder):
+        gh: GridHolder = grid_holder
+        charges = []
+        
+        charge_positions = gh.history[0][0].get_charges_xy()
+        print(charge_positions)
+        for c_x, c_y in charge_positions:
+            x, y = c_y, gh.width - c_x - 1
+            circle_settings = {
+                "class": 'charge',
+                "cx": gh.svg_settings.draw_start + x * gh.svg_settings.scale_size,
+                "cy": gh.svg_settings.draw_start + y * gh.svg_settings.scale_size,
+                "r": gh.svg_settings.r,
+                "fill": '#000000',
+                "stroke": "none",
+            }
+
+            charge = Circle(**circle_settings)
+            charges.append(charge)
+        return charges
+        

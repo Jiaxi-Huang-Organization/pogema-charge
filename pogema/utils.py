@@ -29,13 +29,14 @@ def check_grid(obstacles, agents_xy, targets_xy, charge_stations_xy):
             if agents_xy[i] == agents_xy[j]:
                 raise ValueError(f"Agents can't overlap! position {agents_xy[i]} is in both occupied by Agent {i} and Agent {j} .")
 
-    for start_xy, finish_xy, charges_xy in zip(agents_xy, targets_xy, charge_stations_xy):
+    for start_xy, finish_xy in zip(agents_xy, targets_xy):
         s_x, s_y = start_xy
         if obstacles[s_x, s_y]:
             raise KeyError(f'Cell is {s_x, s_y} occupied by obstacle.')
         f_x, f_y = finish_xy
         if obstacles[f_x, f_y]:
             raise KeyError(f'Cell is {f_x, f_y} occupied by obstacle.')
+    for charges_xy in charge_stations_xy:
         c_x, c_y = charges_xy
         if obstacles[c_x, c_y]:
             raise KeyError(f'Cell is {c_x, c_y} occupied by obstacle.')
@@ -80,7 +81,7 @@ def render_grid(obstacles, positions_xy=None, targets_xy=None, charges_xy=None, 
                         gym_utils.colorize('|' + chars[finish_id % len(chars)] + '|', 'white', highlight=False))    
                 elif charge_id is not None:
                     out += str(
-                        gym_utils.colorize('|' + chars[charge_id % len(chars)] + '|', 'green', highlight=False))
+                        gym_utils.colorize(' ' + chars[charge_id % len(chars)] + ' ', 'green', highlight=False))
                 else:
                     out += str(gym_utils.colorize(str(' . '), 'white', highlight=False))
             else:

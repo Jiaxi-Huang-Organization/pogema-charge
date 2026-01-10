@@ -41,7 +41,6 @@ class Grid:
             self.starts_xy = self.starts_xy[:grid_config.num_agents]
             self.finishes_xy = self.finishes_xy[:grid_config.num_agents]
 
-            self.charges_xy = self.charges_xy
             #[TODO]: add replaceing with free cell on charge stations
             for start_xy, finish_xy in zip(self.starts_xy, self.finishes_xy):
                 s_x, s_y = start_xy
@@ -166,11 +165,20 @@ class Grid:
     def get_targets_xy_relative(self):
         return self.to_relative(self.finishes_xy, self._initial_xy)
     def get_charges_xy_relative(self):
-        return self.to_relative(self.charges_xy, self._initial_xy)
+        result = []
+        for init_x, init_y in self._initial_xy:
+            agent_charges = []
+            for c_x, c_y in self.charges_xy:
+                agent_charges.append((c_x - init_x, c_y - init_y))
+            result.append(agent_charges)
+        return result
     def get_targets_xy(self, only_active=False, ignore_borders=False):
         return self._prepare_positions(deepcopy(self.finishes_xy), only_active, ignore_borders)
     def get_charges_xy(self, only_active=False, ignore_borders=False):
         return self._prepare_positions(deepcopy(self.charges_xy), only_active, ignore_borders)
+    
+    def get_battery(self):
+        return self.battery
     def _normalize_coordinates(self, coordinates):
         gc = self.config
 

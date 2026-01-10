@@ -116,7 +116,8 @@ class Pogema(PogemaBase):
                 agents=gymnasium.spaces.Box(0.0, 1.0, shape=(full_size, full_size)),
                 xy=gymnasium.spaces.Box(low=-1024, high=1024, shape=(2,), dtype=int),
                 target_xy=gymnasium.spaces.Box(low=-1024, high=1024, shape=(2,), dtype=int),
-                charge_xy = gymnasium.spaces.Box(low=-1024, high=1024, shape=(2,), dtype=int),
+                charges_xy = gymnasium.spaces.Box(low=-1024, high=1024, shape=(2,), dtype=int),
+                battery = gymnasium.spaces.Box(low=0, high=10000, shape=(1,), dtype=int)
             )
         elif self.grid_config.observation_type == 'MAPF':
             self.observation_space: gymnasium.spaces.Dict = gymnasium.spaces.Dict(
@@ -124,7 +125,8 @@ class Pogema(PogemaBase):
                 agents=gymnasium.spaces.Box(0.0, 1.0, shape=(full_size, full_size)),
                 xy=gymnasium.spaces.Box(low=-1024, high=1024, shape=(2,), dtype=int),
                 target_xy=gymnasium.spaces.Box(low=-1024, high=1024, shape=(2,), dtype=int),
-                charge_xy = gymnasium.spaces.Box(low=-1024, high=1024, shape=(2,), dtype=int),
+                charges_xy = gymnasium.spaces.Box(low=-1024, high=1024, shape=(2,), dtype=int),
+                battery = gymnasium.spaces.Box(low=0, high=10000, shape=(1,), dtype=int)
                 # global_obstacles=None, # todo define shapes of global state variables
                 # global_xy=None,
                 # global_target_xy=None,
@@ -148,7 +150,6 @@ class Pogema(PogemaBase):
             run_out_battery = self.grid.run_out_battery(agent_idx)
             if on_goal and self.grid.is_active[agent_idx]:
                 rewards.append(1.0)
-            #[TODO]: need to check
             elif run_out_battery and self.grid.is_active[agent_idx]:
                 rewards.append(-1.0)
             else:
@@ -216,13 +217,14 @@ class Pogema(PogemaBase):
         agents_xy_relative = self.grid.get_agents_xy_relative()
         targets_xy_relative = self.grid.get_targets_xy_relative()
         charges_xy_relative = self.grid.get_charges_xy_relative()
+        agents_battery = self.grid.get_battery()
         for agent_idx in range(self.grid_config.num_agents):
             result = {'obstacles': self.grid.get_obstacles_for_agent(agent_idx),
-                      #'charge_stations': self.grid.get_charge_stations_for_agent(agent_idx),
                       'agents': self.grid.get_positions(agent_idx),
                       'xy': agents_xy_relative[agent_idx],
                       'target_xy': targets_xy_relative[agent_idx],
-                      'charge_xy': charges_xy_relative[agent_idx],
+                      'charges_xy': charges_xy_relative[agent_idx],
+                      'battery': agents_battery[agent_idx],
                       }
 
             results.append(result)
@@ -313,6 +315,9 @@ class Pogema(PogemaBase):
 
     def get_charges_xy(self, only_active=False, ignore_borders=False):
         return self.grid.get_charges_xy(only_active=only_active, ignore_borders=ignore_borders)
+
+    def get_agents_battery(self):
+        return self.grid.get_battery()
     def get_state(self, ignore_borders=False, as_dict=False):
         return self.grid.get_state(ignore_borders=ignore_borders, as_dict=as_dict)
 

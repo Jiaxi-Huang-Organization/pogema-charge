@@ -2,12 +2,15 @@ from gymnasium import Wrapper
 
 
 class AgentState:
-    def __init__(self, x, y, tx, ty, step, active):
+    def __init__(self, x, y, tx, ty, cx, cy, step, battery, active):
         self.x = x
         self.y = y
         self.tx = tx
         self.ty = ty
+        self.cx = cx
+        self.cy = cy
         self.step = step
+        self.battery = battery
         self.active = active
 
     def get_xy(self):
@@ -15,6 +18,12 @@ class AgentState:
 
     def get_target_xy(self):
         return self.tx, self.ty
+
+    def get_charges_xy(self):
+        return self.cx, self.cy
+
+    def get_battery(self):
+        return self.battery
 
     def is_active(self):
         return self.active
@@ -70,13 +79,20 @@ class PersistentWrapper(Wrapper):
     def _get_agent_state(self, grid, agent_idx):
         x, y = grid.positions_xy[agent_idx]
         tx, ty = grid.finishes_xy[agent_idx]
+        cx, cy = [], []
+        for charge_xy in grid.charges_xy:
+            cx.append(charge_xy[0])
+            cy.append(charge_xy[1])
+        battry = grid.battery[agent_idx]
         active = grid.is_active[agent_idx]
         if self._xy_offset:
             x += self._xy_offset
             y += self._xy_offset
             tx += self._xy_offset
             ty += self._xy_offset
-        return AgentState(x, y, tx, ty, self._step, active)
+            cx = [i + self._xy_offset for i in cx]
+            cy = [i + self._xy_offset for i in cy]
+        return AgentState(x, y, tx, ty, cx, cy, self._step, battry, active)
 
     def reset(self, **kwargs):
         result = self.env.reset(**kwargs)
