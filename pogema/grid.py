@@ -164,6 +164,7 @@ class Grid:
 
     def get_targets_xy_relative(self):
         return self.to_relative(self.finishes_xy, self._initial_xy)
+    
     def get_charges_xy_relative(self):
         result = []
         for init_x, init_y in self._initial_xy:

@@ -472,9 +472,8 @@ class AnimationDrawer:
         gh: GridHolder = grid_holder
         charges = []
         
-        charge_positions = gh.history[0][0].get_charges_xy()
-        print(charge_positions)
-        for c_x, c_y in charge_positions:
+        c_xes, c_yes = gh.history[0][0].get_charges_xy()
+        for c_x, c_y in zip(c_xes, c_yes):
             x, y = c_y, gh.width - c_x - 1
             circle_settings = {
                 "class": 'charge',
