@@ -177,7 +177,8 @@ class Grid:
         return self._prepare_positions(deepcopy(self.finishes_xy), only_active, ignore_borders)
     def get_charges_xy(self, only_active=False, ignore_borders=False):
         return self._prepare_positions(deepcopy(self.charges_xy), only_active, ignore_borders)
-    
+    def get_initial_battery(self):
+        return self.initial_battery
     def get_battery(self):
         return self.battery
     def _normalize_coordinates(self, coordinates):

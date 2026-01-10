@@ -1,14 +1,9 @@
 <div align="center">
 
 
-[![Pogema logo](https://raw.githubusercontent.com/Tviskaron/pogema-pics/main/pogema-logo-v1.svg)](https://github.com/Cognitive-AI-Systems/pogema)    
+[![Pogema logo](./pogema-charge-logo-v1.svg)](https://github.com/Jiaxi-Huang-Organization/pogema-charge)    
 
 **Partially-Observable Grid Environment for Multiple Agents**
-
-[![CodeFactor](https://www.codefactor.io/repository/github/tviskaron/pogema/badge)](https://www.codefactor.io/repository/github/tviskaron/pogema)
-[![Downloads](https://static.pepy.tech/badge/pogema)](https://pepy.tech/project/pogema)
-[![CI](https://github.com/Cognitive-AI-Systems/pogema/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/Cognitive-AI-Systems/pogema/actions/workflows/CI.yml)
-[![CodeQL](https://github.com/Cognitive-AI-Systems/pogema/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/Cognitive-AI-Systems/pogema/actions/workflows/codeql-analysis.yml) 
     
 </div> 
 
@@ -134,18 +129,4 @@ grid_config = GridConfig(map=grid, num_agents=8)
 
 # Create custom Pogema environment
 env = pogema_v0(grid_config=grid_config)
-```
-
-
-
-
-## Citation
-If you use this repository in your research or wish to cite it, please make a reference to our paper: 
-```
-@inproceedings{skrynnik2025pogema,
-  title={POGEMA: A Benchmark Platform for Cooperative Multi-Agent Pathfinding},
-  author={Skrynnik, Alexey and Andreychuk, Anton and Borzilov, Anatolii and Chernyavskiy, Alexander and Yakovlev, Konstantin and Panov, Aleksandr},
-  booktitle={The Thirteenth International Conference on Learning Representations},
-  year={2025}
-}
 ```
