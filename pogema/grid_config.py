@@ -19,7 +19,7 @@ class GridConfig(CommonSettings, ):
     obs_radius: int = 5
     agents_xy: Optional[list] = None
     #[TODO]: add initial setting of position of charge station(color dynamic shine)
-    charge_stations_xy: Optional[list] = None
+    charges_xy: Optional[list] = None
     targets_xy: Optional[list] = None
     num_agents: Optional[int] = None
     num_charges: Optional[int] = None
@@ -71,9 +71,9 @@ class GridConfig(CommonSettings, ):
                 else:
                     cls.check_positions(targets_xy, width, height)
             
-            charge_stations_xy = values.get('charge_stations_xy')
-            if charge_stations_xy is not None:
-                cls.cheack_position(charge_stations_xy, width, height)
+            charges_xy = values.get('charges_xy')
+            if charges_xy is not None:
+                cls.check_positions(charges_xy, width, height)
         
         return values
 
@@ -185,8 +185,8 @@ class GridConfig(CommonSettings, ):
     @validator('num_charges', always=True)
     def num_charges_must_be_positive(cls, v, values):
         if v is None:
-            if values['charge_stations_xy']:
-                v = len(values['charge_stations_xy'])
+            if values['charges_xy']:
+                v = len(values['charges_xy'])
             else:
                 v = 1
         assert 1 <= v <= 10000000, "num_charges must be in [1, 10000000]"
@@ -213,7 +213,7 @@ class GridConfig(CommonSettings, ):
             elif agents_xy and targets_xy and charges_xy:
                 values['agents_xy'] = agents_xy
                 values['targets_xy'] = targets_xy
-                values['charge_stations_xy'] = charges_xy
+                values['charges_xy'] = charges_xy
                 values['num_agents'] = len(agents_xy)
             elif (values.get('agents_xy') is None or values.get(
                     'targets_xy') is None) and possible_agents_xy and possible_targets_xy and possible_charges_xy:

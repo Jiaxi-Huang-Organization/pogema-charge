@@ -13,11 +13,11 @@ def grid_to_str(grid):
     return '\n'.join(''.join('.' if cell == 0 else '#' for cell in row) for row in grid)
 
 
-def check_grid(obstacles, agents_xy, targets_xy, charge_stations_xy):
+def check_grid(obstacles, agents_xy, targets_xy, charges_xy):
     if bool(agents_xy) != bool(targets_xy):
         raise AgentsTargetsSizeError("Agents and targets must be defined together/undefined together!")
 
-    if not agents_xy or not targets_xy or not charge_stations_xy:
+    if not agents_xy or not targets_xy or not charges_xy:
         return
 
     if len(agents_xy) != len(targets_xy):
@@ -36,7 +36,7 @@ def check_grid(obstacles, agents_xy, targets_xy, charge_stations_xy):
         f_x, f_y = finish_xy
         if obstacles[f_x, f_y]:
             raise KeyError(f'Cell is {f_x, f_y} occupied by obstacle.')
-    for charges_xy in charge_stations_xy:
+    for charges_xy in charges_xy:
         c_x, c_y = charges_xy
         if obstacles[c_x, c_y]:
             raise KeyError(f'Cell is {c_x, c_y} occupied by obstacle.')

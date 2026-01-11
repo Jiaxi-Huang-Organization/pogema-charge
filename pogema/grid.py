@@ -24,9 +24,9 @@ class Grid:
             self.obstacles = get_grid(self.config.map_name).get_obstacles()
         self.obstacles = self.obstacles.astype(np.int32)
 
-        if grid_config.targets_xy and grid_config.agents_xy and grid_config.charge_stations_xy:
+        if grid_config.targets_xy and grid_config.agents_xy and grid_config.charges_xy:
             self.starts_xy = grid_config.agents_xy
-            self.charges_xy = grid_config.charge_stations_xy
+            self.charges_xy = grid_config.charges_xy
             if isinstance(grid_config.targets_xy[0][0], (list, tuple)):
                 self.finishes_xy = [sequence[0] for sequence in grid_config.targets_xy]
             else:
@@ -36,8 +36,8 @@ class Grid:
                 raise IndexError("Can't create task. Please provide agents_xy and targets_xy of the same size.")
             if grid_config.num_agents > len(self.starts_xy):
                 raise IndexError(f"Not enough agents_xy and targets_xy to place {grid_config.num_agents} agents")
-            if len(self.charge_stations_xy) == 0:
-                raise IndexError("Can't create task. Please provide charge_stations_xy at least one.")
+            if len(self.charges_xy) == 0:
+                raise IndexError("Can't create task. Please provide charges_xy at least one.")
             self.starts_xy = self.starts_xy[:grid_config.num_agents]
             self.finishes_xy = self.finishes_xy[:grid_config.num_agents]
 
@@ -115,6 +115,7 @@ class Grid:
 
         self.starts_xy = [(x + r, y + r) for x, y in self.starts_xy]
         self.finishes_xy = [(x + r, y + r) for x, y in self.finishes_xy]
+        self.charges_xy = [(x + r, y + r) for x, y in self.charges_xy]
 
     def get_obstacles(self, ignore_borders=False):
         gc = self.config

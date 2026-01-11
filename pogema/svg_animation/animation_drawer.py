@@ -134,7 +134,7 @@ class AnimationDrawer:
             grid_lines = self.create_grid_lines(gh, render_width, render_height)
             for line in grid_lines:
                 drawing.add_element(line)
-        for obj in [*obstacles, *agents, *battery_bars, *targets, *charges]:
+        for obj in [*obstacles, *agents, *battery_bars, *initial_battery_bars, *targets, *charges]:
             drawing.add_element(obj)
 
         if gh.config.egocentric_idx is not None:
@@ -224,6 +224,7 @@ class AnimationDrawer:
             battery_x_path = []
             battery_y_path = []
             battery_heights = []
+            initial_battery_heights = []
 
             # Get max battery from initial state for percentage calculation
             max_battery = gh.history[agent_idx][0].get_battery() if gh.history[agent_idx] else 1
@@ -247,6 +248,7 @@ class AnimationDrawer:
                 current_battery = agent_state.get_battery()
                 battery_percentage = current_battery / max_battery if max_battery > 0 else 0
                 bar_height = gh.svg_settings.r * 2.0
+                initial_battery_heights.append(str(bar_height))
                 battery_height = bar_height * battery_percentage
                 battery_heights.append(str(battery_height))
                 # Determine battery color based on level
@@ -276,6 +278,7 @@ class AnimationDrawer:
             battery_bar.add_animation(self.compressed_anim('fill', fills, gh.svg_settings.time_scale))
             initial_battery_bar.add_animation(self.compressed_anim('x', battery_x_path, gh.svg_settings.time_scale))
             initial_battery_bar.add_animation(self.compressed_anim('y', battery_y_path, gh.svg_settings.time_scale))
+            initial_battery_bar.add_animation(self.compressed_anim('height', initial_battery_heights, gh.svg_settings.time_scale))
             initial_battery_bar.add_animation(self.compressed_anim('visibility', visibility, gh.svg_settings.time_scale))
             if opacity:
                 agent.add_animation(self.compressed_anim('opacity', opacity, gh.svg_settings.time_scale))
