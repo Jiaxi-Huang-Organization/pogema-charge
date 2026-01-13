@@ -90,6 +90,9 @@ class Drawing:
         .line {{stroke: {self.svg_settings.obstacle_color}; stroke-width: {self.svg_settings.stroke_width};}}
         .agent {{r: {self.svg_settings.r};}}
         .target {{fill: none; stroke-width: {self.svg_settings.stroke_width}; r: {self.svg_settings.r};}}
+        .charge {{fill: #000000; stroke: none; r: {self.svg_settings.r};}}
+        .battery {{fill: #00ff00; stroke: none; r: {self.svg_settings.r * 0.3};}}
+        .initial_battery {{fill: none; stroke: #ffffff; stroke-width: 2; r: {self.svg_settings.r * 0.3};}}
         </style>
         '''
 
@@ -128,7 +131,8 @@ class AnimationDrawer:
                     obstacles = self.create_static_obstacles(obstacles= obstacles, grid_holder=gh)
                 self.create_frame_view(gh)
             else:
-                self.animate_agents_with_battry(agents, battery_bars, initial_battery_bars, gh)
+                self.animate_agents_with_battery(agents, battery_bars, initial_battery_bars, gh)
+                self.animate_targets(targets, gh)
 
         if gh.config.show_grid_lines:
             grid_lines = self.create_grid_lines(gh, render_width, render_height)
@@ -212,7 +216,7 @@ class AnimationDrawer:
         view.add_animation(self.compressed_anim('y', y_path, gh.svg_settings.time_scale))
         view.add_animation(self.compressed_anim('visibility', visibility, gh.svg_settings.time_scale))
 
-    def animate_agents_with_battry(self, agents, battery_bars, initial_battery_bars, grid_holder):
+    def animate_agents_with_battery(self, agents, battery_bars, initial_battery_bars, grid_holder):
         gh: GridHolder = grid_holder
         ego_idx = gh.config.egocentric_idx
 
@@ -435,9 +439,12 @@ class AnimationDrawer:
 
     def create_agents(self, grid_holder):
         return self.create_agents_with_battery(grid_holder)
+    def create_static_agents(self, grid_holder):
+        return self.create_static_agents_with_battery(grid_holder)
 
     def create_agents_with_battery(self, grid_holder):
         """Create agents with battery bars displayed next to them"""
+        initial_positions = [state[0].get_xy() for state in grid_holder.history if state[0].is_active()]
         gh: GridHolder = grid_holder
         ego_idx = grid_holder.config.egocentric_idx
         
@@ -446,35 +453,10 @@ class AnimationDrawer:
         initial_battery_bars = []
         # Calculate max battery for percentage calculation
         
-        for agent_idx, agent_states in enumerate(gh.history):
-            # Skip inactive agents
-            if not agent_states[0].is_active():
-                continue
-            max_battery = agent_states[0].get_battery()
-            x, y = agent_states[0].get_xy()
-
-            # Create agent circle
-            circle_settings = {
-                'class': 'agent',
-                'cx': gh.svg_settings.draw_start + y * gh.svg_settings.scale_size,
-                'cy': -gh.svg_settings.draw_start + -(gh.width - x - 1) * gh.svg_settings.scale_size,
-                'r': gh.svg_settings.r, 
-                'fill': gh.colors[agent_idx], 
-            }
-
-            if ego_idx is not None:
-                ego_x, ego_y = gh.history[ego_idx][0].get_xy()
-                is_out_of_radius = not self.check_in_radius(x, y, ego_x, ego_y, gh.obs_radius)
-                circle_settings['fill'] = gh.svg_settings.ego_other_color
-                if agent_idx == ego_idx:
-                    circle_settings['fill'] = gh.svg_settings.ego_color
-                elif is_out_of_radius and gh.svg_settings.egocentric_shaded:
-                    circle_settings['opacity'] = gh.svg_settings.shaded_opacity
-
-            agent_circle = Circle(**circle_settings)
-
+        for idx, (x, y) in enumerate(initial_positions):
             # Create battery bar
-            initial_battery = gh.history[agent_idx][0].get_battery()
+            initial_battery = gh.history[idx][0].get_battery()
+            max_battery = gh.history[idx][0].get_battery()
             battery_percentage = initial_battery / max_battery
             # Determine battery color based on level
             if battery_percentage > 0.6:
@@ -485,16 +467,23 @@ class AnimationDrawer:
                 battery_color = '#ff0000'  # Red - low battery
 
             # Battery bar dimensions
-            bar_width = gh.svg_settings.r * 0.3
+            bar_width = gh.svg_settings.r * 0.6
             bar_height = gh.svg_settings.r * 2.0
             initial_battery_height = bar_height
             battery_height = bar_height * battery_percentage
 
             # Calculate position (right side of the agent)
             center_x = gh.svg_settings.draw_start + y * gh.svg_settings.scale_size
-            center_y = -gh.svg_settings.draw_start #+ -(gh.width - x - 1) * gh.svg_settings.scale_size
+            center_y = gh.svg_settings.draw_start + (gh.width - x - 1) * gh.svg_settings.scale_size
             offset_x = gh.svg_settings.r * 1.3
 
+            circle_settings = {
+                'class': 'agent',
+                'cx': center_x,
+                'cy': center_y,
+                'r': gh.svg_settings.r, 
+                'fill': gh.colors[idx], 
+            }
             battery_settings = {
                 'class': 'battery',
                 'x': center_x + offset_x,
@@ -509,46 +498,109 @@ class AnimationDrawer:
                 'x': center_x + offset_x,
                 'y': center_y,  # Align bottom of battery bar with agent center
                 'width': bar_width,
-                'height': battery_height,
+                'height': initial_battery_height,
                 'fill': "none",
                 'stroke': "#ffffff",             
             }
-            initial_battery_bar = Rectangle(**initial_battery_settings)
-            battery_bar = Rectangle(**battery_settings)
-
-            # Add agent and battery bar to their respective lists
-            agents.append(agent_circle)
-            initial_battery_bars.append(initial_battery_bar)
-            battery_bars.append(battery_bar)
-
-        return agents, battery_bars, initial_battery_bars
-
-    def create_static_agents(self, grid_holder):
-        agents = []
-        gh: GridHolder = grid_holder
-        ego_idx = grid_holder.config.egocentric_idx
-        frame_idx = grid_holder.config.frame_idx
-        
-        static_positions = [state[frame_idx].get_xy() for state in grid_holder.history]
-        for idx, (x, y) in enumerate(static_positions):
-            circle_settings = {
-                'cx': gh.svg_settings.draw_start + y * gh.svg_settings.scale_size,
-                'cy': -gh.svg_settings.draw_start + -(grid_holder.width - x - 1) * gh.svg_settings.scale_size,
-                'r': gh.svg_settings.r, 'fill': grid_holder.colors[idx], 'class': 'agent',
-            }
-
             if ego_idx is not None:
-                ego_x, ego_y = static_positions[ego_idx]
-                is_out_of_radius = not self.check_in_radius(x, y, ego_x, ego_y, grid_holder.obs_radius)
+                ego_x, ego_y = gh.history[ego_idx][0].get_xy()
+                is_out_of_radius = not self.check_in_radius(x, y, ego_x, ego_y, gh.obs_radius)
                 circle_settings['fill'] = gh.svg_settings.ego_other_color
                 if idx == ego_idx:
                     circle_settings['fill'] = gh.svg_settings.ego_color
                 elif is_out_of_radius and gh.svg_settings.egocentric_shaded:
                     circle_settings['opacity'] = gh.svg_settings.shaded_opacity
+                    battery_settings['opacity'] = gh.svg_settings.shaded_opacity
+                    initial_battery_settings['opacity'] = gh.svg_settings.shaded_opacity
+            agent_circle = Circle(**circle_settings)
+            battery_bar = Rectangle(**battery_settings)
+            initial_battery_bar = Rectangle(**initial_battery_settings)
+            # Add agent and battery bar to their respective lists
+            agents.append(agent_circle)
+            battery_bars.append(battery_bar)
+            initial_battery_bars.append(initial_battery_bar)
 
-            agents.append(Circle(**circle_settings))
+        return agents, battery_bars, initial_battery_bars
 
-        return agents
+    def create_static_agents_with_battery(self, grid_holder):
+        """Create frame agents with battery bars displayed next to them"""
+        gh: GridHolder = grid_holder
+        ego_idx = grid_holder.config.egocentric_idx
+        frame_idx = grid_holder.config.frame_idx
+
+        static_positions = [state[frame_idx].get_xy() for state in grid_holder.history]
+        static_battery = [state[frame_idx].get_battery() for state in grid_holder.history]
+        initial_battery = [state[0].get_battery() for state in grid_holder.history]   
+        agents = []
+        battery_bars = []
+        initial_battery_bars = []
+
+
+        for idx, (x, y) in enumerate(static_positions):
+            if not any([state.is_active() for state in gh.history[idx]]):
+                continue
+            battery_percentage = static_battery[idx] / initial_battery[idx]
+            # Determine battery color based on level
+            if battery_percentage > 0.6:
+                battery_color = '#00ff00'  # Green - high battery
+            elif battery_percentage > 0.2:
+                battery_color = '#ffff00'  # Yellow - medium battery
+            else:
+                battery_color = '#ff0000'  # Red - low battery
+            # Battery bar dimensions
+            bar_width = gh.svg_settings.r * 0.6
+            bar_height = gh.svg_settings.r * 2.0
+            initial_battery_height = bar_height
+            battery_height = bar_height * battery_percentage
+
+            # Calculate position (right side of the agent)
+            center_x = gh.svg_settings.draw_start + y * gh.svg_settings.scale_size
+            center_y = gh.svg_settings.draw_start + (gh.width - x - 1) * gh.svg_settings.scale_size
+            offset_x = gh.svg_settings.r * 1.3
+
+            circle_settings = {
+                'class': 'agent',
+                'cx': center_x,
+                'cy': center_y,
+                'r': gh.svg_settings.r, 
+                'fill': gh.colors[idx], 
+            }
+            battery_settings = {
+                'class': 'battery',
+                'x': center_x + offset_x,
+                'y': center_y,  # Align bottom of battery bar with agent center
+                'width': bar_width,
+                'height': battery_height,
+                'fill': battery_color,
+                'stroke': 'none',
+            }
+            initial_battery_settings = {
+                'class': 'initial_battery',
+                'x': center_x + offset_x,
+                'y': center_y,  # Align bottom of battery bar with agent center
+                'width': bar_width,
+                'height': initial_battery_height,
+                'fill': "none",
+                'stroke': "#ffffff",             
+            }
+            if ego_idx is not None:
+                ego_x, ego_y = gh.history[ego_idx][0].get_xy()
+                is_out_of_radius = not self.check_in_radius(x, y, ego_x, ego_y, gh.obs_radius)
+                circle_settings['fill'] = gh.svg_settings.ego_other_color
+                if idx == ego_idx:
+                    circle_settings['fill'] = gh.svg_settings.ego_color
+                elif is_out_of_radius and gh.svg_settings.egocentric_shaded:
+                    circle_settings['opacity'] = gh.svg_settings.shaded_opacity
+                    battery_settings['opacity'] = gh.svg_settings.shaded_opacity
+                    initial_battery_settings['opacity'] = gh.svg_settings.shaded_opacity
+            agent_circle = Circle(**circle_settings)
+            battery_bar = Rectangle(**battery_settings)
+            initial_battery_bar = Rectangle(**initial_battery_settings)
+            # Add agent and battery bar to their respective lists
+            agents.append(agent_circle)
+            battery_bars.append(battery_bar)
+            initial_battery_bars.append(initial_battery_bar)
+        return agents, battery_bars, initial_battery_bars
 
     @staticmethod
     def create_targets(grid_holder):
