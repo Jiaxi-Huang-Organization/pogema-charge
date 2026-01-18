@@ -109,7 +109,7 @@ class Pogema(PogemaBase):
         self.was_run_out_battery = None
         full_size = self.grid_config.obs_radius * 2 + 1
         if self.grid_config.observation_type == 'default':
-            self.observation_space = gymnasium.spaces.Box(-1.0, 1.0, shape=(3, full_size, full_size))
+            self.observation_space = gymnasium.spaces.Box(-1.0, 1.0, shape=(4, full_size, full_size))
         elif self.grid_config.observation_type == 'POMAPF':
             self.observation_space: gymnasium.spaces.Dict = gymnasium.spaces.Dict(
                 obstacles=gymnasium.spaces.Box(0.0, 1.0, shape=(full_size, full_size)),
