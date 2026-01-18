@@ -91,7 +91,7 @@ class Drawing:
         .agent {{r: {self.svg_settings.r};}}
         .target {{fill: none; stroke-width: {self.svg_settings.stroke_width}; r: {self.svg_settings.r};}}
         .charge {{fill: #000000; stroke: none; r: {self.svg_settings.r};}}
-        .battery {{fill: #00ff00; stroke: none; r: {self.svg_settings.r * 0.3};}}
+        .battery {{stroke: none; r: {self.svg_settings.r * 0.3};}}
         .initial_battery {{fill: none; stroke: #ffffff; stroke-width: 2; r: {self.svg_settings.r * 0.3};}}
         </style>
         '''
@@ -231,7 +231,7 @@ class AnimationDrawer:
             initial_battery_heights = []
 
             # Get max battery from initial state for percentage calculation
-            max_battery = gh.history[agent_idx][0].get_battery() if gh.history[agent_idx] else 1
+            max_battery = gh.history[agent_idx][0].get_battery()
 
             for idx, agent_state in enumerate(gh.history[agent_idx]):
                 x, y = agent_state.get_xy()
@@ -250,9 +250,8 @@ class AnimationDrawer:
 
                 # Calculate battery height based on current battery level
                 current_battery = agent_state.get_battery()
-                battery_percentage = current_battery / max_battery if max_battery > 0 else 0
+                battery_percentage = current_battery / max_battery
                 bar_height = gh.svg_settings.r * 2.0
-                initial_battery_heights.append(str(bar_height))
                 battery_height = bar_height * battery_percentage
                 battery_heights.append(str(battery_height))
                 # Determine battery color based on level
@@ -282,7 +281,6 @@ class AnimationDrawer:
             battery_bar.add_animation(self.compressed_anim('fill', fills, gh.svg_settings.time_scale))
             initial_battery_bar.add_animation(self.compressed_anim('x', battery_x_path, gh.svg_settings.time_scale))
             initial_battery_bar.add_animation(self.compressed_anim('y', battery_y_path, gh.svg_settings.time_scale))
-            initial_battery_bar.add_animation(self.compressed_anim('height', initial_battery_heights, gh.svg_settings.time_scale))
             initial_battery_bar.add_animation(self.compressed_anim('visibility', visibility, gh.svg_settings.time_scale))
             if opacity:
                 agent.add_animation(self.compressed_anim('opacity', opacity, gh.svg_settings.time_scale))
@@ -297,13 +295,22 @@ class AnimationDrawer:
             cumulative.append(cumulative[-1] + t)
         times = [str(round(value / cumulative[-1], 10)) for value in cumulative]
         tokens = [tokens[0]] + tokens
-
-        times = times
-        tokens = tokens
         return Animation(
             attributeName=attr_name, dur=f'{time_scale * (-1 + cumulative[-1])}s',
             values=";".join(tokens), repeatCount=rep_cnt, keyTimes=";".join(times)
         )
+    #@classmethod
+    #def compressed_anim(cls, attr_name, tokens, time_scale, rep_cnt='indefinite'):
+    #    n = len(tokens)
+    #    times = [str(round(i / n, 10)) for i in range(n + 1)]
+    #    tokens = [tokens[0]] + tokens
+#
+    #    return Animation(
+    #        attributeName=attr_name, dur=f'{time_scale * n}s',
+    #        values=";".join(tokens), repeatCount=rep_cnt, keyTimes=";".join(times)
+    #    )
+
+
 
     @staticmethod
     def wisely_add(token, cnt, tokens, times):

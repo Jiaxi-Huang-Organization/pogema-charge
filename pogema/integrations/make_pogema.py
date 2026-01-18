@@ -1,4 +1,4 @@
-from typing import Union, Optional
+from typing import Union
 
 from gymnasium import Wrapper
 
@@ -7,6 +7,7 @@ from pogema.envs import _make_pogema
 from pogema.integrations.pettingzoo import parallel_env
 from pogema.integrations.pymarl import PyMarlPogema
 from pogema.integrations.sample_factory import AutoResetWrapper, IsMultiAgentWrapper, MetricsForwardingWrapper
+from pogema.integrations.stable_baselines import SingleAgentWrapper
 
 
 def _make_sample_factory_integration(grid_config):
@@ -21,27 +22,12 @@ def _make_sample_factory_integration(grid_config):
 def _make_py_marl_integration(grid_config, *_, **__):
     return PyMarlPogema(grid_config)
 
-
-class SingleAgentWrapper(Wrapper):
-
-    def step(self, action):
-        observations, rewards, terminated, truncated, infos = self.env.step(
-            [action] + [self.env.action_space.sample() for _ in range(self.get_num_agents() - 1)])
-        return observations[0], rewards[0], terminated[0], truncated[0], infos[0]
-
-    def reset(self, seed: Optional[int] = None, return_info: bool = True, options: Optional[dict] = None, ):
-        observations, infos = self.env.reset()
-        if return_info:
-            return observations[0], infos[0]
-        else:
-            return observations[0]
-
-
-def make_single_agent_gym(grid_config: Union[GridConfig, dict] = GridConfig()):
+def _make_stable_baselines_integration(grid_config):
     env = _make_pogema(grid_config)
-    env = SingleAgentWrapper(env)
-
-    return env
+    if grid_config.num_agents == 1:
+        return SingleAgentWrapper(env)
+    else:
+        raise KeyError('Multi-agent integration is not supported for stable-baselines')
 
 
 def make_pogema(grid_config: Union[GridConfig, dict] = GridConfig(), *args, **kwargs):
@@ -62,7 +48,7 @@ def make_pogema(grid_config: Union[GridConfig, dict] = GridConfig(), *args, **kw
     elif grid_config.integration == 'PettingZoo':
         return parallel_env(grid_config)
     elif grid_config.integration == 'gymnasium':
-        return make_single_agent_gym(grid_config)
+        return _make_stable_baselines_integration(grid_config)
 
     raise KeyError(grid_config.integration)
 

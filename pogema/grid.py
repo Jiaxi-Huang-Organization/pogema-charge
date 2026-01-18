@@ -41,7 +41,6 @@ class Grid:
             self.starts_xy = self.starts_xy[:grid_config.num_agents]
             self.finishes_xy = self.finishes_xy[:grid_config.num_agents]
 
-            #[TODO]: add replaceing with free cell on charge stations
             for start_xy, finish_xy in zip(self.starts_xy, self.finishes_xy):
                 s_x, s_y = start_xy
                 f_x, f_y = finish_xy
@@ -60,10 +59,8 @@ class Grid:
                                   Warning, stacklevel=2)
                 self.obstacles[c_x, c_y] = grid_config.FREE
         elif grid_config.possible_agents_xy and grid_config.possible_targets_xy and grid_config.possible_charges_xy:
-            #[TODO]: modify the function with charges_xy
             self.starts_xy, self.finishes_xy, self.charges_xy = generate_from_possible_positions(self.config)
         else:
-            #[TODO]: modify the function with charges_xy
             self.starts_xy, self.finishes_xy, self.charges_xy = generate_positions_targets_and_charges_fast(self.obstacles, self.config)
 
         if len(self.starts_xy) != len(self.finishes_xy):
@@ -90,10 +87,15 @@ class Grid:
         self.positions_xy = self.starts_xy
         self._initial_xy = deepcopy(self.starts_xy)
         self.is_active = {agent_id: True for agent_id in range(self.config.num_agents)}
-        #[TODO]: agent battery management
-        self.initial_battery = [
-            self.config.height + self.config.width for _ in range(self.config.num_agents)
-        ]
+        if self.config.initial_battery is not None:
+            assert len(self.config.initial_battery) == self.config.num_agents , "Please make sure assign initial_battery for each agent"
+            self.initial_battery = [
+                self.config.initial_battery[i] for i in range(self.config.num_agents)
+            ]
+        else:
+            self.initial_battery = [
+                self.config.height + self.config.width for _ in range(self.config.num_agents)
+            ]
         self.battery = self.initial_battery.copy()
 
     def add_artificial_border(self):
@@ -290,7 +292,14 @@ class Grid:
         dx, dy = self.config.MOVES[action]
         self.positions[x, y] = self.config.FREE
         self.positions[x+dx, y+dy] = self.config.OBSTACLE
+        if action != 0:
+            self.battery[agent_id] -= self.config.battery_decrement
         self.positions_xy[agent_id] = (x+dx, y+dy)
+        if self.on_charges(agent_id):
+            self.battery[agent_id] = min(self.battery[agent_id] + self.config.charge_increment, self.initial_battery[agent_id])
+            print(f'Agent {agent_id} battery: {self.battery[agent_id]} initial_battery: {self.initial_battery[agent_id]}')
+
+
 
     def move(self, agent_id, action):
         x, y = self.positions_xy[agent_id]
@@ -301,21 +310,22 @@ class Grid:
                 x += dx
                 y += dy
                 self.positions[x, y] = self.config.OBSTACLE
-
-                # 消耗电量
-                self.battery[agent_id] -= self.config.battery_decrement
-
-                # 检查是否到达充电站
-                if (x, y) in self.charges_xy:
-                    self.battery[agent_id] += self.config.charge_increment
-                    self.battery[agent_id] = min(self.battery[agent_id], self.initial_battery[agent_id])
+                if action != 0:
+                    self.battery[agent_id] -= self.config.battery_decrement
 
         self.positions_xy[agent_id] = (x, y)
-
+        if self.on_charges(agent_id):
+            self.battery[agent_id] = min(self.battery[agent_id] + self.config.charge_increment, self.initial_battery[agent_id])
     def on_goal(self, agent_id):
         return self.positions_xy[agent_id] == self.finishes_xy[agent_id]
+    def on_charges(self, agent_id):
+        return self.positions_xy[agent_id] in self.charges_xy
     def run_out_battery(self, agent_id):
         return self.battery[agent_id] <= 0
+    def get_battery_for_agent(self, agent_id):
+        return self.battery[agent_id]
+    def get_initial_battery_for_agent(self, agent_id):
+        return self.initial_battery[agent_id]
     def is_active(self, agent_id):
         return self.is_active[agent_id]
 

@@ -59,8 +59,8 @@ class PogemaBase(gymnasium.Env):
         return np.concatenate([
             self.grid.get_obstacles_for_agent(agent_id)[None],
             self.grid.get_positions(agent_id)[None],
-            self.grid.get_square_target(agent_id)[None],
             self.grid.get_square_charges(agent_id)[None],
+            self.grid.get_square_target(agent_id)[None],
         ])
 
     def check_reset(self):
@@ -142,18 +142,23 @@ class Pogema(PogemaBase):
 
         self.move_agents(action)
         self.update_was_on_goal()
-        #[TODO]: change terminated condition to check battery
         self.update_run_out_battery()
         for agent_idx in range(self.grid_config.num_agents):
 
             on_goal = self.grid.on_goal(agent_idx)
+            on_charges = self.grid.on_charges(agent_idx)
             run_out_battery = self.grid.run_out_battery(agent_idx)
+            battery = self.grid.get_battery_for_agent(agent_idx)
+            initial_battery = self.grid.get_initial_battery_for_agent(agent_idx)
             if on_goal and self.grid.is_active[agent_idx]:
-                rewards.append(1.0)
+                rewards.append(5.0 * (battery / initial_battery))
             elif run_out_battery and self.grid.is_active[agent_idx]:
-                rewards.append(-1.0)
+                rewards.append(-5.0)
             else:
-                rewards.append(0.0)
+                if on_charges:
+                    rewards.append(-1.0 * (battery / initial_battery))
+                else:
+                    rewards.append(-1.0)
             terminated.append((on_goal or run_out_battery))
 
         for agent_idx in range(self.grid_config.num_agents):

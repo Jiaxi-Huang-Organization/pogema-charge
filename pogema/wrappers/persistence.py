@@ -33,10 +33,10 @@ class AgentState:
 
     def __eq__(self, other):
         o = other
-        return self.x == o.x and self.y == o.y and self.tx == o.tx and self.ty == o.ty and self.active == o.active
+        return self.x == o.x and self.y == o.y and self.tx == o.tx and self.ty == o.ty and self.cx == o.cx and self.cy == o.cy and self.step == o.step and self.battery == o.battery and self.active == o.active
 
     def __str__(self):
-        return str([self.x, self.y, self.tx, self.ty, self.step, self.active])
+        return str([self.x, self.y, self.tx, self.ty, self.cx, self.cy, self.step, self.battery, self.active])
 
 
 class PersistentWrapper(Wrapper):

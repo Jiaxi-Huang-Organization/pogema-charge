@@ -14,11 +14,11 @@ class GridConfig(CommonSettings, ):
     height: Optional[int] = None
     size: int = 8
     density: float = 0.3
+    initial_battery: Optional[list] = None
     charge_increment: int = 3
     battery_decrement: int = 1
     obs_radius: int = 5
     agents_xy: Optional[list] = None
-    #[TODO]: add initial setting of position of charge station(color dynamic shine)
     charges_xy: Optional[list] = None
     targets_xy: Optional[list] = None
     num_agents: Optional[int] = None
@@ -215,8 +215,8 @@ class GridConfig(CommonSettings, ):
                 values['targets_xy'] = targets_xy
                 values['charges_xy'] = charges_xy
                 values['num_agents'] = len(agents_xy)
-            elif (values.get('agents_xy') is None or values.get(
-                    'targets_xy') is None) and possible_agents_xy and possible_targets_xy and possible_charges_xy:
+                values['num_charges'] = len(charges_xy)
+            elif (values.get('agents_xy') is None or values.get('targets_xy') is None or value.get('charges_xy') is None) and possible_agents_xy and possible_targets_xy and possible_charges_xy:
                 values['possible_agents_xy'] = possible_agents_xy
                 values['possible_targets_xy'] = possible_targets_xy
                 values['possible_charges_xy'] = possible_charges_xy
@@ -264,8 +264,9 @@ class GridConfig(CommonSettings, ):
 
                 if char == '.':
                     row.append(free)
-                    possible_agents_xy.append(position)
-                    possible_targets_xy.append(position)
+                    #possible_agents_xy.append(position)
+                    #possible_targets_xy.append(position)
+                    #possible_charges_xy.append(position)
                 elif char == '#':
                     row.append(obstacle)
                 elif char in special_chars:
@@ -286,7 +287,7 @@ class GridConfig(CommonSettings, ):
                     row.append(free)
                     possible_agents_xy.append(position)
                     possible_targets_xy.append(position)
-                elif char == '1':
+                elif '0' <= char <= '9':
                     charges[char] = position
                     row.append(free)
                     possible_charges_xy.append(position)
