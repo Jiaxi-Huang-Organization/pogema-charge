@@ -436,31 +436,45 @@ class PogemaLifeLong(Pogema):
     def step(self, action: list):
         assert len(action) == self.grid_config.num_agents
         rewards = []
-
-        infos = [dict() for _ in range(self.grid_config.num_agents)]
+        
+        terminated = []
+        
+        #infos = [dict() for _ in range(self.grid_config.num_agents)]
 
         self.move_agents(action)
         self.update_was_on_goal()
-
+        self.update_run_out_battery()
         for agent_idx in range(self.grid_config.num_agents):
             on_goal = self.grid.on_goal(agent_idx)
-            #[TODO]: lifelong need to implement after non-lifelong env
+            on_charges = self.grid.on_charges(agent_idx)
+            run_out_battery = self.grid.run_out_battery(agent_idx)
+            battery = self.grid.get_battery_for_agent(agent_idx)
+            initial_battery = self.grid.get_initial_battery_for_agent(agent_idx)
             if on_goal and self.grid.is_active[agent_idx]:
-                rewards.append(1.0)
+                rewards.append(5.0 * (battery / initial_battery))
+            elif run_out_battery and self.grid.is_active[agent_idx]:
+                rewards.append(-5.0)
             else:
-                rewards.append(0.0)
-
+                if on_charges:
+                    rewards.append(-1.0 * (battery / initial_battery))
+                else:
+                    rewards.append(-1.0)
+            terminated.append(run_out_battery)
             if self.grid.on_goal(agent_idx):
                 self.grid.finishes_xy[agent_idx] = self._generate_new_target(agent_idx)
 
+ 
         for agent_idx in range(self.grid_config.num_agents):
-            infos[agent_idx]['is_active'] = self.grid.is_active[agent_idx]
+            if self.grid.run_out_battery(agent_idx):
+                self.grid.hide_agent(agent_idx)
+                self.grid.is_active[agent_idx] = False
+        
+        infos = self._get_infos()
 
-        obs = self._obs()
+        observations = self._obs()
 
-        terminated = [False] * self.grid_config.num_agents
         truncated = [False] * self.grid_config.num_agents
-        return obs, rewards, terminated, truncated, infos
+        return observations, rewards, terminated, truncated, infos
 
 
 class PogemaCoopFinish(Pogema):
@@ -488,7 +502,6 @@ class PogemaCoopFinish(Pogema):
 
         terminated = [is_task_solved] * self.grid_config.num_agents
         truncated = [False] * self.grid_config.num_agents
-        #[TODO]: here reward need to associated with battery status like battry change(-1,+1)
         rewards = [1.0 if is_task_solved else 0.0 for _ in range(self.grid_config.num_agents)]
         return obs, rewards, terminated, truncated, infos
 

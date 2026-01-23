@@ -70,7 +70,7 @@ class Grid:
                     break
                 if self.config.map is None:
                     self.obstacles = generate_obstacles(self.config)
-                self.starts_xy, self.finishes_xy = generate_positions_targets_and_charges_fast(self.obstacles, self.config)
+                self.starts_xy, self.finishes_xy, self.charges_xy = generate_positions_targets_and_charges_fast(self.obstacles, self.config)
 
         if not self.starts_xy or not self.finishes_xy or len(self.starts_xy) != len(self.finishes_xy):
             raise OverflowError(

@@ -204,11 +204,11 @@ class GridConfig(CommonSettings, ):
         if isinstance(v, str):
             v, agents_xy, targets_xy, charges_xy, possible_agents_xy, possible_targets_xy, possible_charges_xy = cls.str_map_to_list(v, values['FREE'],
                                                                                                     values['OBSTACLE'])
-            if agents_xy and targets_xy and values.get('agents_xy') is not None and values.get(
-                    'targets_xy') is not None:
-                raise KeyError("""Can't create task. Please provide agents_xy and targets_xy only once.
+            if agents_xy and targets_xy and charges_xy and values.get('agents_xy') is not None and values.get(
+                    'targets_xy') is not None and values.get('charges_xy') is not None:
+                raise KeyError("""Can't create task. Please provide agents_xy and targets_xy and charges_xy only once.
                 Either with parameters or with a map.""")
-            if (agents_xy or targets_xy) and (possible_agents_xy or possible_targets_xy):
+            if (agents_xy or targets_xy or charges_xy) and (possible_agents_xy or possible_targets_xy or possible_charges_xy):
                 raise KeyError("""Can't create task. Mark either possible locations or precise ones.""")
             elif agents_xy and targets_xy and charges_xy:
                 values['agents_xy'] = agents_xy

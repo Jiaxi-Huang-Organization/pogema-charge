@@ -108,7 +108,7 @@ def generate_from_possible_positions(grid_config: GridConfig):
     rng.shuffle(grid_config.possible_agents_xy)
     rng.shuffle(grid_config.possible_targets_xy)
     rng.shuffle(grid_config.possible_charges_xy)
-    return grid_config.possible_agents_xy[:grid_config.num_agents], grid_config.possible_targets_xy[:grid_config.num_agents], grid_config.possible_charges_xy
+    return grid_config.possible_agents_xy[:grid_config.num_agents], grid_config.possible_targets_xy[:grid_config.num_agents], grid_config.possible_charges_xy[:grid_config.num_charges]
     
 
 def generate_positions_targets_and_charges_fast(obstacles, grid_config):

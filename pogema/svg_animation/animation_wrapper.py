@@ -70,6 +70,10 @@ class AnimationMonitor(Wrapper):
                 name += f'-{gc.map_name}'
             if gc.seed is not None:
                 name += f'-seed{gc.seed}'
+            if gc.num_agents:
+                name += f'-agents{gc.num_agents}'
+            if gc.num_charges:
+                name += f'-charges{gc.num_charges}'
         else:
             name += '-render'
         return name + '.svg'
