@@ -297,8 +297,6 @@ class Grid:
         self.positions_xy[agent_id] = (x+dx, y+dy)
         if self.on_charges(agent_id):
             self.battery[agent_id] = min(self.battery[agent_id] + self.config.charge_increment, self.initial_battery[agent_id])
-            print(f'Agent {agent_id} battery: {self.battery[agent_id]} initial_battery: {self.initial_battery[agent_id]}')
-
 
 
     def move(self, agent_id, action):

@@ -264,9 +264,9 @@ class GridConfig(CommonSettings, ):
 
                 if char == '.':
                     row.append(free)
-                    #possible_agents_xy.append(position)
-                    #possible_targets_xy.append(position)
-                    #possible_charges_xy.append(position)
+                    possible_agents_xy.append(position)
+                    possible_targets_xy.append(position)
+                    possible_charges_xy.append(position)
                 elif char == '#':
                     row.append(obstacle)
                 elif char in special_chars:
@@ -303,7 +303,7 @@ class GridConfig(CommonSettings, ):
         charges_xy = [[x, y] for _, (x, y) in sorted(charges.items())]
 
         assert len(targets_xy) == len(agents_xy), "Mismatch in number of agents and targets."
-        assert len(charges_xy) > 0, "Must define at least one charge station."
+        #assert len(charges_xy) > 0, "Must define at least one charge station."
         if not any(char in special_chars for char in str_map):
             possible_agents_xy, possible_targets_xy, possible_charges_xy = None, None, None
 
