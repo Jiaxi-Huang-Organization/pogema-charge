@@ -220,6 +220,8 @@ class GridConfig(CommonSettings, ):
                 values['possible_agents_xy'] = possible_agents_xy
                 values['possible_targets_xy'] = possible_targets_xy
                 values['possible_charges_xy'] = possible_charges_xy
+                values['num_agents'] = len(possible_agents_xy)
+                values['num_charges'] = len(possible_charges_xy)
         
         height = len(v)
         width = 0
