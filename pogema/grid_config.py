@@ -216,7 +216,7 @@ class GridConfig(CommonSettings, ):
                 values['charges_xy'] = charges_xy
                 values['num_agents'] = len(agents_xy)
                 values['num_charges'] = len(charges_xy)
-            elif (values.get('agents_xy') is None or values.get('targets_xy') is None or value.get('charges_xy') is None) and possible_agents_xy and possible_targets_xy and possible_charges_xy:
+            elif (values.get('agents_xy') is None or values.get('targets_xy') is None or values.get('charges_xy') is None) and possible_agents_xy and possible_targets_xy and possible_charges_xy:
                 values['possible_agents_xy'] = possible_agents_xy
                 values['possible_targets_xy'] = possible_targets_xy
                 values['possible_charges_xy'] = possible_charges_xy
