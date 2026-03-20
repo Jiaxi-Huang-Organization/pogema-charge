@@ -53,29 +53,28 @@ class RelativeBatteryMetric(AbstractMetric):
             return result
 
 
-class AvgThroughputWithActiveMetric(AbstractMetric):
+class LifeLongAvgThroughputWithActiveMetric(AbstractMetric):
     """
-    Computes throughput considering only active agents.
+    Computes throughput considering active episode.
     In pogema-charge, agents may die early due to battery depletion,
-    so this metric normalizes by the number of active agent-steps rather than max_episode_steps.
+    so this metric change valid_episode_steps rather than max_episode_steps.
     """
     def __init__(self, env):
         super().__init__(env)
         self._solved_instances = 0
-        self._active_agent_steps = 0
+        self._valid_episode_steps = 0
 
     def _compute_stats(self, step, is_on_goal, finished):
         for agent_idx, on_goal in enumerate(is_on_goal):
             if on_goal:
                 self._solved_instances += 1
         
-        active_agents = sum([self.grid.is_active[agent_idx] for agent_idx in range(self.get_num_agents())])
-        self._active_agent_steps += active_agents
+        self._valid_episode_steps += 1
         
         if finished:
-            result = {'avg_throughput_with_active': self._solved_instances / self._active_agent_steps if self._active_agent_steps > 0 else 0.0}
+            result = {'avg_throughput_with_active': self._solved_instances / self._valid_episode_steps if self._valid_episode_steps > 0 else 0.0}
             self._solved_instances = 0
-            self._active_agent_steps = 0
+            self._valid_episode_steps = 0
             return result
 
 
@@ -95,8 +94,8 @@ class BatteryDepletionRateMetric(AbstractMetric):
         
         if finished:
             result = {
-                'battery_depletion_rate': self._depleted_count / self.get_num_agents(),
-                'agents_depleted': self._depleted_count
+                'agents_depletion_rate': self._depleted_count / self.get_num_agents(),
+                'agents_depleted_count': self._depleted_count
             }
             self._depleted_count = 0
             return result
@@ -107,74 +106,55 @@ class ChargingEfficiencyMetric(AbstractMetric):
     Computes how effectively agents use charging stations.
     Metrics include:
     - charging_visits: total number of times agents stepped on charging stations
-    - charging_success_rate: fraction of episodes where at least one charging event occurred
+    - avg_charging_rate: percentage of agents that stepped on charging stations
     - avg_charging_per_agent: average charging events per agent
     """
     def __init__(self, env):
         super().__init__(env)
         self._charging_events = 0
-        self._had_charging = False
+        self._had_charging = self.get_num_agents() * [False]
 
     def _compute_stats(self, step, is_on_goal, finished):
         for agent_idx in range(self.get_num_agents()):
             if self.grid.on_charges(agent_idx) and self.grid.is_active[agent_idx]:
                 self._charging_events += 1
-                self._had_charging = True
+                self._had_charging[agent_idx] = True
         
         if finished:
             result = {
                 'charging_visits': self._charging_events,
-                'charging_episode': 1.0 if self._had_charging else 0.0,
+                'avg_charging_rate': sum(self._had_charging), 
                 'avg_charging_per_agent': self._charging_events / self.get_num_agents()
             }
             self._charging_events = 0
-            self._had_charging = False
+            self._had_charging = self.get_num_agents() * [False]
             return result
 
 
 class BatteryHealthMetric(AbstractMetric):
     """
     Computes battery health metrics:
-    - avg_final_battery: average remaining battery (relative to initial) for agents that reached goal
-    - avg_depleted_battery: average battery level when agents ran out (should be ~0)
-    - battery_utilization: how much of the initial battery was consumed on average
+    - avg_goal_battery_relative: average remaining battery (relative to initial) for agents that reached goal
     """
     def __init__(self, env):
         super().__init__(env)
         self._goal_battery_sum = 0.0
         self._goal_count = 0
-        self._depleted_battery_sum = 0.0
-        self._depleted_count = 0
-        self._initial_battery_sum = 0.0
-        self._final_battery_sum = 0.0
 
     def _compute_stats(self, step, is_on_goal, finished):
         for agent_idx in range(self.get_num_agents()):
             battery = self.grid.get_battery_for_agent(agent_idx)
             initial_battery = self.grid.get_initial_battery_for_agent(agent_idx)
-            self._initial_battery_sum += initial_battery
-            self._final_battery_sum += battery
-            
             if self.env.was_on_goal[agent_idx]:
                 self._goal_battery_sum += battery / initial_battery
                 self._goal_count += 1
-            
-            if self.env.was_run_out_battery[agent_idx]:
-                self._depleted_battery_sum += battery / initial_battery
-                self._depleted_count += 1
-        
+                    
         if finished:
             result = {
-                'avg_final_battery_relative': self._final_battery_sum / self.get_num_agents() if self.get_num_agents() > 0 else 0.0,
                 'avg_goal_battery_relative': self._goal_battery_sum / self._goal_count if self._goal_count > 0 else 0.0,
-                'battery_utilization': 1.0 - (self._final_battery_sum / self._initial_battery_sum) if self._initial_battery_sum > 0 else 0.0
             }
             self._goal_battery_sum = 0.0
             self._goal_count = 0
-            self._depleted_battery_sum = 0.0
-            self._depleted_count = 0
-            self._initial_battery_sum = 0.0
-            self._final_battery_sum = 0.0
             return result
 
 

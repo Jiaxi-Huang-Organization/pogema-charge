@@ -8,8 +8,7 @@ from pogema.grid import Grid, GridLifeLong
 from pogema.grid_config import GridConfig
 from pogema.wrappers.metrics import LifeLongAverageThroughputMetric, NonDisappearEpLengthMetric, \
     NonDisappearCSRMetric, NonDisappearISRMetric, EpLengthMetric, ISRMetric, CSRMetric, SumOfCostsAndMakespanMetric, \
-    RelativeBatteryMetric, AvgThroughputWithActiveMetric, BatteryDepletionRateMetric, ChargingEfficiencyMetric, \
-    BatteryHealthMetric
+    RelativeBatteryMetric, LifeLongAvgThroughputWithActiveMetric, BatteryDepletionRateMetric, ChargingEfficiencyMetric, BatteryHealthMetric
 from pogema.wrappers.multi_time_limit import MultiTimeLimit
 from pogema.generator import generate_new_target, generate_from_possible_targets
 from pogema.wrappers.persistence import PersistentWrapper
@@ -550,7 +549,7 @@ def _make_pogema(grid_config):
         if grid_config.on_target == 'restart':
             env = LifeLongAverageThroughputMetric(env)
             env = RelativeBatteryMetric(env)
-            env = AvgThroughputWithActiveMetric(env)
+            env = LifeLongAvgThroughputWithActiveMetric(env)
             env = BatteryDepletionRateMetric(env)
             env = ChargingEfficiencyMetric(env)
             env = BatteryHealthMetric(env)
@@ -560,7 +559,6 @@ def _make_pogema(grid_config):
             env = NonDisappearEpLengthMetric(env)
             env = SumOfCostsAndMakespanMetric(env)
             env = RelativeBatteryMetric(env)
-            env = AvgThroughputWithActiveMetric(env)
             env = BatteryDepletionRateMetric(env)
             env = ChargingEfficiencyMetric(env)
             env = BatteryHealthMetric(env)
@@ -569,7 +567,6 @@ def _make_pogema(grid_config):
             env = CSRMetric(env)
             env = EpLengthMetric(env)
             env = RelativeBatteryMetric(env)
-            env = AvgThroughputWithActiveMetric(env)
             env = BatteryDepletionRateMetric(env)
             env = ChargingEfficiencyMetric(env)
             env = BatteryHealthMetric(env)
