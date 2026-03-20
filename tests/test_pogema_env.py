@@ -247,7 +247,7 @@ def test_steps_per_second_throughput():
     for on_target in ['finish', 'nothing', 'restart']:
         for num_agents in [1, 32, 64]:
             for size in [32, 64]:
-                gc = GridConfig(obs_radius=5, seed=42, max_episode_steps=1024, 
+                gc = GridConfig(obs_radius=5, seed=42, max_episode_steps=1024,
                               size=size, num_agents=num_agents, on_target=on_target)
 
                 start_time = time.monotonic()
@@ -256,3 +256,273 @@ def test_steps_per_second_throughput():
                 steps_per_second = gc.max_episode_steps / (end_time - start_time)
                 table.append([on_target, num_agents, size, steps_per_second * gc.num_agents])
     print('\n' + tabulate(table, headers=['on_target', 'num_agents', 'size', 'SPS (individual)'], tablefmt='grid'))
+
+
+# ============== Battery and Charge Metrics Tests ==============
+
+def test_battery_info_in_infos():
+    """Test that battery information is included in step infos."""
+    env = pogema_v0(GridConfig(num_agents=2, size=8, density=0.2, seed=42, max_episode_steps=64))
+    obs, info = env.reset()
+    
+    # Check initial battery info
+    for i in range(env.get_num_agents()):
+        assert 'battery' in info[i]
+        assert 'initial_battery' in info[i]
+        assert 'on_charges' in info[i]
+        assert 'run_out_battery' in info[i]
+        assert info[i]['battery'] == info[i]['initial_battery']
+        assert info[i]['on_charges'] == False
+        assert info[i]['run_out_battery'] == False
+
+
+def test_battery_decrement_on_move():
+    """Test that battery decreases when agents move."""
+    env = pogema_v0(GridConfig(num_agents=2, size=8, density=0.1, seed=42, max_episode_steps=64))
+    env.reset()
+    
+    initial_battery = [env.grid.get_battery_for_agent(i) for i in range(env.get_num_agents())]
+    
+    # Move all agents
+    actions = [1, 2]  # up, down (non-wait actions)
+    obs, reward, terminated, truncated, info = env.step(actions)
+    
+    for i in range(env.get_num_agents()):
+        # Battery should decrease by battery_decrement (default 1)
+        assert info[i]['battery'] == initial_battery[i] - 1
+
+
+def test_battery_no_decrement_on_wait():
+    """Test that battery does not decrease when agents wait."""
+    env = pogema_v0(GridConfig(num_agents=2, size=8, density=0.1, seed=42, max_episode_steps=64))
+    env.reset()
+    
+    initial_battery = [env.grid.get_battery_for_agent(i) for i in range(env.get_num_agents())]
+    
+    # Wait action (0)
+    actions = [0, 0]
+    obs, reward, terminated, truncated, info = env.step(actions)
+    
+    for i in range(env.get_num_agents()):
+        # Battery should not change
+        assert info[i]['battery'] == initial_battery[i]
+
+
+def test_relative_battery_metric():
+    """Test RelativeBatteryMetric computes correct average relative battery."""
+    from pogema.wrappers.metrics import RelativeBatteryMetric
+    
+    env = pogema_v0(GridConfig(num_agents=2, size=8, density=0.1, seed=42, max_episode_steps=32))
+    env = RelativeBatteryMetric(env)
+    env.reset()
+    
+    # Run episode
+    while True:
+        obs, reward, terminated, truncated, info = env.step(env.sample_actions())
+        if all(terminated) or all(truncated):
+            break
+    
+    # Check metric exists
+    assert 'metrics' in info[0]
+    assert 'avg_relative_battery' in info[0]['metrics']
+    # Relative battery should be between 0 and 1
+    assert 0.0 <= info[0]['metrics']['avg_relative_battery'] <= 1.0
+
+
+def test_avg_throughput_with_active_metric():
+    """Test AvgThroughputWithActiveMetric handles early agent death."""
+    from pogema.wrappers.metrics import AvgThroughputWithActiveMetric
+    
+    env = pogema_v0(GridConfig(num_agents=4, size=8, density=0.1, seed=42, max_episode_steps=64))
+    env = AvgThroughputWithActiveMetric(env)
+    env.reset()
+    
+    # Run episode
+    while True:
+        obs, reward, terminated, truncated, info = env.step(env.sample_actions())
+        if all(terminated) or all(truncated):
+            break
+    
+    # Check metric exists
+    assert 'metrics' in info[0]
+    assert 'avg_throughput_with_active' in info[0]['metrics']
+    # Throughput should be between 0 and 1
+    assert 0.0 <= info[0]['metrics']['avg_throughput_with_active'] <= 1.0
+
+
+def test_battery_depletion_rate_metric():
+    """Test BatteryDepletionRateMetric tracks depleted agents."""
+    from pogema.wrappers.metrics import BatteryDepletionRateMetric
+    
+    env = pogema_v0(GridConfig(num_agents=4, size=8, density=0.1, seed=42, max_episode_steps=64))
+    env = BatteryDepletionRateMetric(env)
+    env.reset()
+    
+    # Run episode
+    while True:
+        obs, reward, terminated, truncated, info = env.step(env.sample_actions())
+        if all(terminated) or all(truncated):
+            break
+    
+    # Check metrics exist
+    assert 'metrics' in info[0]
+    assert 'battery_depletion_rate' in info[0]['metrics']
+    assert 'agents_depleted' in info[0]['metrics']
+    # Depletion rate should be between 0 and 1
+    assert 0.0 <= info[0]['metrics']['battery_depletion_rate'] <= 1.0
+
+
+def test_charging_efficiency_metric():
+    """Test ChargingEfficiencyMetric tracks charging station usage."""
+    from pogema.wrappers.metrics import ChargingEfficiencyMetric
+    
+    env = pogema_v0(GridConfig(num_agents=4, size=8, density=0.1, seed=42, max_episode_steps=64))
+    env = ChargingEfficiencyMetric(env)
+    env.reset()
+    
+    # Run episode
+    while True:
+        obs, reward, terminated, truncated, info = env.step(env.sample_actions())
+        if all(terminated) or all(truncated):
+            break
+    
+    # Check metrics exist
+    assert 'metrics' in info[0]
+    assert 'charging_visits' in info[0]['metrics']
+    assert 'charging_episode' in info[0]['metrics']
+    assert 'avg_charging_per_agent' in info[0]['metrics']
+    # Charging episode should be 0 or 1
+    assert info[0]['metrics']['charging_episode'] in [0.0, 1.0]
+
+
+def test_battery_health_metric():
+    """Test BatteryHealthMetric tracks battery utilization."""
+    from pogema.wrappers.metrics import BatteryHealthMetric
+    
+    env = pogema_v0(GridConfig(num_agents=4, size=8, density=0.1, seed=42, max_episode_steps=64))
+    env = BatteryHealthMetric(env)
+    env.reset()
+    
+    # Run episode
+    while True:
+        obs, reward, terminated, truncated, info = env.step(env.sample_actions())
+        if all(terminated) or all(truncated):
+            break
+    
+    # Check metrics exist
+    assert 'metrics' in info[0]
+    assert 'avg_final_battery_relative' in info[0]['metrics']
+    assert 'avg_goal_battery_relative' in info[0]['metrics']
+    assert 'battery_utilization' in info[0]['metrics']
+
+
+def test_battery_metrics_all_modes():
+    """Test that battery metrics work in all on_target modes."""
+    from pogema.wrappers.metrics import RelativeBatteryMetric, AvgThroughputWithActiveMetric
+    
+    for on_target in ['finish', 'nothing', 'restart']:
+        env = pogema_v0(GridConfig(num_agents=2, size=8, density=0.1, seed=42, 
+                                   max_episode_steps=32, on_target=on_target))
+        env = RelativeBatteryMetric(env)
+        env = AvgThroughputWithActiveMetric(env)
+        env.reset()
+        
+        # Run episode
+        while True:
+            obs, reward, terminated, truncated, info = env.step(env.sample_actions())
+            if all(terminated) or all(truncated):
+                break
+        
+        # Check metrics exist
+        assert 'metrics' in info[0]
+        assert 'avg_relative_battery' in info[0]['metrics']
+        assert 'avg_throughput_with_active' in info[0]['metrics']
+
+
+def test_charging_on_charge_station():
+    """Test that agents charge when on charge station."""
+    # Create a map with a charge station
+    grid_map = """
+        a.0.A
+    """
+    env = pogema_v0(GridConfig(map=grid_map, seed=42, max_episode_steps=32))
+    env.reset()
+    
+    initial_battery = env.grid.get_battery_for_agent(0)
+    
+    # Agent should be able to move to charge station
+    # Move right towards charge station at position (0, 2)
+    actions = [4]  # right
+    
+    # First move towards charge station
+    obs, reward, terminated, truncated, info = env.step(actions)
+    
+    # Check if agent is on charge station
+    on_charges = info[0]['on_charges']
+    
+    # If on charge station, battery should increase
+    if on_charges:
+        current_battery = env.grid.get_battery_for_agent(0)
+        # Battery should have increased (after decrement for move, then increment for charging)
+        assert current_battery >= initial_battery - 1
+
+
+def test_run_out_battery_termination():
+    """Test that agents terminate when running out of battery."""
+    # Use very low battery
+    env = pogema_v0(GridConfig(num_agents=2, size=8, density=0.1, seed=42, 
+                               max_episode_steps=64, initial_battery=[3, 10]))
+    env.reset()
+    
+    # Run until agent 0 runs out of battery
+    steps = 0
+    agent0_depleted = False
+    while steps < 20:
+        obs, reward, terminated, truncated, info = env.step(env.sample_actions())
+        steps += 1
+        
+        if info[0]['run_out_battery']:
+            agent0_depleted = True
+            break
+    
+    assert agent0_depleted, "Agent with low battery should deplete"
+
+
+def test_custom_initial_battery():
+    """Test custom initial battery configuration."""
+    custom_battery = [50, 100, 75]
+    env = pogema_v0(GridConfig(num_agents=3, size=8, density=0.1, seed=42,
+                               max_episode_steps=64, initial_battery=custom_battery))
+    obs, info = env.reset()
+    
+    for i in range(3):
+        assert info[i]['battery'] == custom_battery[i]
+        assert info[i]['initial_battery'] == custom_battery[i]
+
+
+def test_invalid_initial_battery_length():
+    """Test that invalid initial battery length raises error."""
+    from pogema.grid import Grid
+    
+    config = GridConfig(num_agents=3, size=8, density=0.1, seed=42,
+                        initial_battery=[50, 100])  # Only 2 values for 3 agents
+    with pytest.raises(AssertionError):
+        Grid(config)
+
+
+def test_battery_and_charge_configurations():
+    """Test various battery and charge configuration combinations."""
+    # Test with custom charge and battery settings
+    config = GridConfig(
+        num_agents=2, size=8, density=0.1, seed=42,
+        initial_battery=[50, 100],
+        charge_increment=5,
+        battery_decrement=2,
+        num_charges=2
+    )
+    env = pogema_v0(grid_config=config)
+    env.reset()
+    
+    assert env.grid.get_battery_for_agent(0) == 50
+    assert env.grid.get_battery_for_agent(1) == 100
+    assert len(env.grid.charges_xy) == 2

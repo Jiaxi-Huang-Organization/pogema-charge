@@ -493,10 +493,306 @@ def test_goal_sequences_position_format():
             agents_xy=[[0, 0]],
             targets_xy=[[[2, 2, 3], [4, 4]]]
         )
-    
+
     with pytest.raises(ValueError, match="Position coordinates must be integers"):
         GridConfig(
             width=8, height=8,
             agents_xy=[[0, 0]],
             targets_xy=[[[2.5, 2], [4, 4]]]
         )
+
+
+# ============== Charge Station Tests ==============
+
+def test_charges_xy_in_grid():
+    """Test that charge stations are properly created in the grid."""
+    config = GridConfig(seed=42, size=8, num_agents=2, num_charges=3, density=0.2)
+    grid = Grid(config)
+    
+    assert len(grid.charges_xy) == 3
+    # Check charge stations are within bounds
+    r = config.obs_radius
+    for cx, cy in grid.charges_xy:
+        assert r <= cx < config.height + r
+        assert r <= cy < config.width + r
+
+
+def test_charges_xy_custom_positions():
+    """Test custom charge station positions."""
+    charges_xy = [[2, 2], [5, 5], [7, 3]]
+    agents_xy = [[0, 0], [1, 1]]
+    targets_xy = [[8, 8], [7, 7]]
+    config = GridConfig(
+        size=10, num_agents=2, num_charges=3,
+        charges_xy=charges_xy, agents_xy=agents_xy, targets_xy=targets_xy, density=0.2
+    )
+    grid = Grid(config)
+    
+    r = config.obs_radius
+    expected = [[x + r, y + r] for x, y in charges_xy]
+    assert np.isclose(grid.charges_xy, expected).all()
+
+
+def test_charges_xy_from_map_string():
+    """Test charge stations defined in map string using digits."""
+    grid_map = """
+        a.0.A
+        .....
+        .1...
+    """
+    config = GridConfig(map=grid_map)
+    grid = Grid(config)
+    
+    # Should have 2 charge stations (0 and 1)
+    assert len(grid.charges_xy) == 2
+
+
+def test_charges_xy_relative():
+    """Test relative charge station positions."""
+    charges_xy = [[4, 4], [8, 6]]
+    agents_xy = [[1, 1], [2, 2]]
+    targets_xy = [[7, 7], [6, 6]]
+    
+    config = GridConfig(
+        size=10, num_agents=2, num_charges=2,
+        charges_xy=charges_xy, agents_xy=agents_xy, targets_xy=targets_xy
+    )
+    env = pogema_v0(grid_config=config)
+    env.reset()
+    
+    charges_relative = env.get_charges_xy_relative()
+    assert len(charges_relative) == 2  # One list per agent
+
+
+def test_on_charges_method():
+    """Test on_charges method in Grid."""
+    charges_xy = [[3, 3]]
+    agents_xy = [[3, 3]]  # Agent starts on charge station
+    targets_xy = [[7, 7]]
+    
+    config = GridConfig(
+        size=10, num_agents=1, num_charges=1,
+        charges_xy=charges_xy, agents_xy=agents_xy, targets_xy=targets_xy
+    )
+    grid = Grid(config)
+    
+    assert grid.on_charges(0) == True
+    
+    # Move agent away
+    grid.move_without_checks(0, 1)  # up
+    assert grid.on_charges(0) == False
+
+
+def test_battery_charging():
+    """Test that battery increases when on charge station."""
+    charges_xy = [[3, 3]]
+    agents_xy = [[3, 3]]  # Agent starts on charge station
+    targets_xy = [[7, 7]]
+    
+    config = GridConfig(
+        size=10, num_agents=1, num_charges=1,
+        charges_xy=charges_xy, agents_xy=agents_xy, targets_xy=targets_xy,
+        initial_battery=[50], charge_increment=5
+    )
+    grid = Grid(config)
+    
+    initial_battery = grid.get_battery_for_agent(0)
+    
+    # Wait on charge station (action 0)
+    grid.move_without_checks(0, 0)
+    
+    # Battery should increase by charge_increment (capped at initial)
+    new_battery = grid.get_battery_for_agent(0)
+    assert new_battery == min(initial_battery + 5, 50)
+
+
+def test_battery_capped_at_initial():
+    """Test that battery cannot exceed initial battery level."""
+    charges_xy = [[3, 3]]
+    agents_xy = [[3, 3]]
+    targets_xy = [[7, 7]]
+    
+    config = GridConfig(
+        size=10, num_agents=1, num_charges=1,
+        charges_xy=charges_xy, agents_xy=agents_xy, targets_xy=targets_xy,
+        initial_battery=[50], charge_increment=10
+    )
+    grid = Grid(config)
+    
+    # Battery starts at 50
+    assert grid.get_battery_for_agent(0) == 50
+    
+    # Wait on charge station multiple times
+    for _ in range(10):
+        grid.move_without_checks(0, 0)
+    
+    # Battery should still be capped at 50
+    assert grid.get_battery_for_agent(0) == 50
+
+
+def test_run_out_battery():
+    """Test run_out_battery method."""
+    config = GridConfig(
+        size=10, num_agents=1,
+        initial_battery=[3], battery_decrement=1
+    )
+    grid = Grid(config)
+    
+    assert grid.run_out_battery(0) == False
+    
+    # Move until battery depletes
+    for _ in range(3):
+        grid.move_without_checks(0, 1)  # up
+    
+    assert grid.run_out_battery(0) == True
+
+
+def test_charge_increment_validation():
+    """Test charge_increment must be in valid range."""
+    from pydantic import ValidationError
+    
+    with pytest.raises(ValidationError):
+        GridConfig(charge_increment=0)
+    
+    with pytest.raises(ValidationError):
+        GridConfig(charge_increment=101)
+    
+    # Valid values
+    GridConfig(charge_increment=1)
+    GridConfig(charge_increment=50)
+    GridConfig(charge_increment=100)
+
+
+def test_battery_decrement_validation():
+    """Test battery_decrement must be in valid range."""
+    from pydantic import ValidationError
+    
+    with pytest.raises(ValidationError):
+        GridConfig(battery_decrement=0)
+    
+    with pytest.raises(ValidationError):
+        GridConfig(battery_decrement=101)
+    
+    # Valid values
+    GridConfig(battery_decrement=1)
+    GridConfig(battery_decrement=50)
+    GridConfig(battery_decrement=100)
+
+
+def test_num_charges_validation():
+    """Test num_charges must be positive."""
+    from pydantic import ValidationError
+    
+    with pytest.raises(ValidationError):
+        GridConfig(num_charges=0)
+    
+    # Valid values
+    GridConfig(num_charges=1)
+    GridConfig(num_charges=100)
+
+
+def test_charges_xy_validation():
+    """Test charges_xy must be within bounds."""
+    with pytest.raises(IndexError):
+        GridConfig(size=8, charges_xy=[[10, 10]])
+    
+    with pytest.raises(IndexError):
+        GridConfig(size=8, charges_xy=[[-1, 0]])
+
+
+def test_get_charges_direction():
+    """Test get_charges returns direction vectors to charge stations."""
+    charges_xy = [[5, 5]]
+    agents_xy = [[3, 3]]
+    targets_xy = [[7, 7]]
+    
+    config = GridConfig(
+        size=10, num_agents=1, num_charges=1,
+        charges_xy=charges_xy, agents_xy=agents_xy, targets_xy=targets_xy
+    )
+    grid = Grid(config)
+    
+    directions = grid.get_charges(0)
+    # Should return list of direction tuples
+    assert isinstance(directions, list)
+    if len(directions) > 0:
+        assert len(directions[0]) == 2
+        # Direction should be normalized
+        assert 0.0 <= directions[0][0] <= 1.0
+        assert 0.0 <= directions[0][1] <= 1.0
+
+
+def test_get_square_charges():
+    """Test get_square_charges returns heatmap in observation radius."""
+    charges_xy = [[5, 5]]
+    agents_xy = [[3, 3]]
+    targets_xy = [[7, 7]]
+    
+    config = GridConfig(
+        size=10, num_agents=1, num_charges=1, obs_radius=3,
+        charges_xy=charges_xy, agents_xy=agents_xy, targets_xy=targets_xy
+    )
+    grid = Grid(config)
+    
+    square_charges = grid.get_square_charges(0)
+    # Should return 2D array of size (2*obs_radius+1, 2*obs_radius+1)
+    expected_size = 2 * config.obs_radius + 1
+    assert square_charges.shape == (expected_size, expected_size)
+    # Should have exactly one charge station marked
+    assert np.sum(square_charges) == 1.0
+
+
+def test_map_with_charge_stations():
+    """Test full map string with charge stations."""
+    grid_map = """
+        .........
+        .a.....A.
+        ....0....
+        .........
+    """
+    config = GridConfig(map=grid_map, num_agents=1)
+    grid = Grid(config)
+    
+    assert len(grid.charges_xy) == 1
+    assert grid.config.num_charges == 1
+
+
+def test_multiple_charge_stations_map():
+    """Test map with multiple charge stations."""
+    grid_map = """
+        .........
+        .a.0.1.A.
+        .........
+    """
+    config = GridConfig(map=grid_map)
+    grid = Grid(config)
+    
+    assert len(grid.charges_xy) == 2
+
+
+def test_charges_not_on_obstacles():
+    """Test that charge stations are not placed on obstacles."""
+    charges_xy = [[3, 3]]
+    agents_xy = [[1, 1]]
+    targets_xy = [[7, 7]]
+    
+    # Create map with obstacle at charge station location
+    grid_map = """
+        .........
+        .a......A
+        .........
+        ...#.....
+        .........
+    """
+    # Override with custom positions
+    config = GridConfig(
+        map=grid_map,
+        charges_xy=[[3, 3]],
+        agents_xy=[[1, 1]],
+        targets_xy=[[1, 7]]
+    )
+    grid = Grid(config)
+    
+    # Charge station should be on free cell
+    cx, cy = grid.charges_xy[0]
+    assert grid.obstacles[cx, cy] == config.FREE

@@ -7,7 +7,9 @@ from gymnasium.error import ResetNeeded
 from pogema.grid import Grid, GridLifeLong
 from pogema.grid_config import GridConfig
 from pogema.wrappers.metrics import LifeLongAverageThroughputMetric, NonDisappearEpLengthMetric, \
-    NonDisappearCSRMetric, NonDisappearISRMetric, EpLengthMetric, ISRMetric, CSRMetric, SumOfCostsAndMakespanMetric
+    NonDisappearCSRMetric, NonDisappearISRMetric, EpLengthMetric, ISRMetric, CSRMetric, SumOfCostsAndMakespanMetric, \
+    RelativeBatteryMetric, AvgThroughputWithActiveMetric, BatteryDepletionRateMetric, ChargingEfficiencyMetric, \
+    BatteryHealthMetric
 from pogema.wrappers.multi_time_limit import MultiTimeLimit
 from pogema.generator import generate_new_target, generate_from_possible_targets
 from pogema.wrappers.persistence import PersistentWrapper
@@ -107,6 +109,8 @@ class Pogema(PogemaBase):
         super().__init__(grid_config)
         self.was_on_goal = None
         self.was_run_out_battery = None
+        self._battery_history = None
+        self._charging_events = None
         full_size = self.grid_config.obs_radius * 2 + 1
         if self.grid_config.observation_type == 'default':
             self.observation_space = gymnasium.spaces.Box(-1.0, 1.0, shape=(4, full_size, full_size))
@@ -143,6 +147,7 @@ class Pogema(PogemaBase):
         self.move_agents(action)
         self.update_was_on_goal()
         self.update_run_out_battery()
+        self._record_battery_state()
         for agent_idx in range(self.grid_config.num_agents):
 
             on_goal = self.grid.on_goal(agent_idx)
@@ -157,6 +162,7 @@ class Pogema(PogemaBase):
             else:
                 if on_charges:
                     rewards.append(-1.0 * (battery / initial_battery))
+                    self._charging_events[agent_idx] += 1
                 else:
                     rewards.append(-1.0)
             terminated.append((on_goal or run_out_battery))
@@ -178,16 +184,32 @@ class Pogema(PogemaBase):
     def update_was_on_goal(self):
         self.was_on_goal = [self.grid.on_goal(agent_idx) and self.grid.is_active[agent_idx]
                             for agent_idx in range(self.grid_config.num_agents)]
-    
+
     def update_run_out_battery(self):
         self.was_run_out_battery = [self.grid.run_out_battery(agent_idx) and self.grid.is_active[agent_idx]
                             for agent_idx in range(self.grid_config.num_agents)]
+    
+    def _record_battery_state(self):
+        for agent_idx in range(self.grid_config.num_agents):
+            battery = self.grid.get_battery_for_agent(agent_idx)
+            initial_battery = self.grid.get_initial_battery_for_agent(agent_idx)
+            self._battery_history[agent_idx].append(battery / initial_battery)
+    
+    def get_battery_history(self):
+        return self._battery_history
+    
+    def get_charging_events(self):
+        return self._charging_events
     def reset(self, seed: Optional[int] = None, return_info: bool = True, options: Optional[dict] = None, ):
         self._initialize_grid()
         self.update_was_on_goal()
         self.update_run_out_battery()
         if seed is not None:
             self.grid.seed = seed
+        
+        self._battery_history = [[] for _ in range(self.grid_config.num_agents)]
+        self._charging_events = [0 for _ in range(self.grid_config.num_agents)]
+        self._record_battery_state()
 
         if return_info:
             return self._obs(), self._get_infos()
@@ -239,6 +261,10 @@ class Pogema(PogemaBase):
         infos = [dict() for _ in range(self.grid_config.num_agents)]
         for agent_idx in range(self.grid_config.num_agents):
             infos[agent_idx]['is_active'] = self.grid.is_active[agent_idx]
+            infos[agent_idx]['battery'] = self.grid.get_battery_for_agent(agent_idx)
+            infos[agent_idx]['initial_battery'] = self.grid.get_initial_battery_for_agent(agent_idx)
+            infos[agent_idx]['on_charges'] = self.grid.on_charges(agent_idx)
+            infos[agent_idx]['run_out_battery'] = self.was_run_out_battery[agent_idx]
         return infos
 
     def _revert_action(self, agent_idx, used_cells, cell, actions):
@@ -523,15 +549,30 @@ def _make_pogema(grid_config):
         # adding metrics wrappers
         if grid_config.on_target == 'restart':
             env = LifeLongAverageThroughputMetric(env)
+            env = RelativeBatteryMetric(env)
+            env = AvgThroughputWithActiveMetric(env)
+            env = BatteryDepletionRateMetric(env)
+            env = ChargingEfficiencyMetric(env)
+            env = BatteryHealthMetric(env)
         elif grid_config.on_target == 'nothing':
             env = NonDisappearISRMetric(env)
             env = NonDisappearCSRMetric(env)
             env = NonDisappearEpLengthMetric(env)
             env = SumOfCostsAndMakespanMetric(env)
+            env = RelativeBatteryMetric(env)
+            env = AvgThroughputWithActiveMetric(env)
+            env = BatteryDepletionRateMetric(env)
+            env = ChargingEfficiencyMetric(env)
+            env = BatteryHealthMetric(env)
         elif grid_config.on_target == 'finish':
             env = ISRMetric(env)
             env = CSRMetric(env)
             env = EpLengthMetric(env)
+            env = RelativeBatteryMetric(env)
+            env = AvgThroughputWithActiveMetric(env)
+            env = BatteryDepletionRateMetric(env)
+            env = ChargingEfficiencyMetric(env)
+            env = BatteryHealthMetric(env)
         else:
             raise KeyError(f'Unknown on_target option: {grid_config.on_target}')
 
