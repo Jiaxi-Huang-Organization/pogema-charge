@@ -72,7 +72,9 @@ class LifeLongAvgThroughputWithActiveMetric(AbstractMetric):
         self._valid_episode_steps += 1
         
         if finished:
-            result = {'avg_throughput_with_active': self._solved_instances / self._valid_episode_steps if self._valid_episode_steps > 0 else 0.0}
+            result = {'avg_throughput_with_active': self._solved_instances / self._valid_episode_steps if self._valid_episode_steps > 0 else 0.0, 
+                      'valid_episode_relative': self._valid_episode_steps / self.grid_config.max_episode_steps if self._valid_episode_steps > 0 else 0.0
+            }
             self._solved_instances = 0
             self._valid_episode_steps = 0
             return result

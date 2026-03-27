@@ -260,10 +260,10 @@ class Pogema(PogemaBase):
         infos = [dict() for _ in range(self.grid_config.num_agents)]
         for agent_idx in range(self.grid_config.num_agents):
             infos[agent_idx]['is_active'] = self.grid.is_active[agent_idx]
-            infos[agent_idx]['battery'] = self.grid.get_battery_for_agent(agent_idx)
-            infos[agent_idx]['initial_battery'] = self.grid.get_initial_battery_for_agent(agent_idx)
-            infos[agent_idx]['on_charges'] = self.grid.on_charges(agent_idx)
-            infos[agent_idx]['run_out_battery'] = self.was_run_out_battery[agent_idx]
+            #infos[agent_idx]['battery'] = self.grid.get_battery_for_agent(agent_idx)
+            #infos[agent_idx]['initial_battery'] = self.grid.get_initial_battery_for_agent(agent_idx)
+            #infos[agent_idx]['on_charges'] = self.grid.on_charges(agent_idx)
+            #infos[agent_idx]['run_out_battery'] = self.was_run_out_battery[agent_idx]
         return infos
 
     def _revert_action(self, agent_idx, used_cells, cell, actions):
