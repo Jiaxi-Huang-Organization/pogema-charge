@@ -36,19 +36,20 @@ class RelativeBatteryMetric(AbstractMetric):
     """
     def __init__(self, env):
         super().__init__(env)
-        self._battery_sum = 0.0
+        self._battery_relative_sum = 0.0
         self._battery_count = 0
 
     def _compute_stats(self, step, is_on_goal, finished):
         for agent_idx in range(self.get_num_agents()):
-            battery = self.grid.get_battery_for_agent(agent_idx)
-            initial_battery = self.grid.get_initial_battery_for_agent(agent_idx)
-            self._battery_sum += battery / initial_battery
-            self._battery_count += 1
+            if self.grid.is_active[agent_idx]:
+                battery = self.grid.get_battery_for_agent(agent_idx)
+                initial_battery = self.grid.get_initial_battery_for_agent(agent_idx)
+                self._battery_relative_sum += battery / initial_battery
+                self._battery_count += 1
         
         if finished:
-            result = {'avg_relative_battery': self._battery_sum / self._battery_count if self._battery_count > 0 else 0.0}
-            self._battery_sum = 0.0
+            result = {'avg_relative_battery': self._battery_relative_sum / self._battery_count if self._battery_count > 0 else 0.0}
+            self._battery_relative_sum = 0.0
             self._battery_count = 0
             return result
 
@@ -62,21 +63,22 @@ class LifeLongAvgThroughputWithActiveMetric(AbstractMetric):
     def __init__(self, env):
         super().__init__(env)
         self._solved_instances = 0
-        self._valid_episode_steps = 0
+        self._valid_episode_steps = [0] * self.get_num_agents()
 
     def _compute_stats(self, step, is_on_goal, finished):
         for agent_idx, on_goal in enumerate(is_on_goal):
-            if on_goal:
-                self._solved_instances += 1
+            if self.grid.is_active[agent_idx]:
+                self._valid_episode_steps[agent_idx] += 1
+                if on_goal:
+                    self._solved_instances += 1
         
-        self._valid_episode_steps += 1
         
         if finished:
-            result = {'avg_throughput_with_active': self._solved_instances / self._valid_episode_steps if self._valid_episode_steps > 0 else 0.0, 
-                      'valid_episode_relative': self._valid_episode_steps / self.grid_config.max_episode_steps if self._valid_episode_steps > 0 else 0.0
+            result = {'avg_throughput_with_active': self._solved_instances / sum(self._valid_episode_steps) * self.get_num_agents() if sum(self._valid_episode_steps) > 0 else 0.0, 
+                      'valid_episode_relative': np.mean(np.array(self._valid_episode_steps) / self.grid_config.max_episode_steps)
             }
             self._solved_instances = 0
-            self._valid_episode_steps = 0
+            self._valid_episode_steps = [0] * self.get_num_agents()
             return result
 
 
@@ -91,7 +93,7 @@ class BatteryDepletionRateMetric(AbstractMetric):
 
     def _compute_stats(self, step, is_on_goal, finished):
         for agent_idx in range(self.get_num_agents()):
-            if self.env.was_run_out_battery[agent_idx]:
+            if self.env.was_run_out_battery[agent_idx]: # step瞬时agent是否刚好耗电完（一个agent最多有一个step为true)
                 self._depleted_count += 1
         
         if finished:
@@ -114,7 +116,7 @@ class ChargingEfficiencyMetric(AbstractMetric):
     def __init__(self, env):
         super().__init__(env)
         self._charging_events = 0
-        self._had_charging = self.get_num_agents() * [False]
+        self._had_charging = [False] * self.get_num_agents() 
 
     def _compute_stats(self, step, is_on_goal, finished):
         for agent_idx in range(self.get_num_agents()):
@@ -125,11 +127,11 @@ class ChargingEfficiencyMetric(AbstractMetric):
         if finished:
             result = {
                 'charging_visits': self._charging_events,
-                'avg_charging_rate': sum(self._had_charging), 
+                'avg_charging_rate': sum(self._had_charging) / self.get_num_agents(), 
                 'avg_charging_per_agent': self._charging_events / self.get_num_agents()
             }
             self._charging_events = 0
-            self._had_charging = self.get_num_agents() * [False]
+            self._had_charging = [False] * self.get_num_agents()
             return result
 
 
@@ -147,7 +149,7 @@ class BatteryHealthMetric(AbstractMetric):
         for agent_idx in range(self.get_num_agents()):
             battery = self.grid.get_battery_for_agent(agent_idx)
             initial_battery = self.grid.get_initial_battery_for_agent(agent_idx)
-            if self.env.was_on_goal[agent_idx]:
+            if self.env.was_on_goal[agent_idx] and self.grid.is_active[agent_idx]:
                 self._goal_battery_sum += battery / initial_battery
                 self._goal_count += 1
                     
