@@ -75,7 +75,7 @@ class LifeLongAvgThroughputWithActiveMetric(AbstractMetric):
         
         if finished:
             result = {'avg_throughput_with_active': self._solved_instances / sum(self._valid_episode_steps) * self.get_num_agents() if sum(self._valid_episode_steps) > 0 else 0.0, 
-                      'valid_episode_relative': np.mean(np.array(self._valid_episode_steps) / self.grid_config.max_episode_steps)
+                      'valid_episode_relative': sum(self._valid_episode_steps) / (self.grid_config.max_episode_steps * self.get_num_agents()) if self.get_num_agents() > 0 else 0.0,
             }
             self._solved_instances = 0
             self._valid_episode_steps = [0] * self.get_num_agents()
