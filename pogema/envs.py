@@ -462,7 +462,7 @@ class PogemaLifeLong(Pogema):
         assert len(action) == self.grid_config.num_agents
         rewards = []
         
-        terminated = []
+        truncated = []
         
         #infos = [dict() for _ in range(self.grid_config.num_agents)]
 
@@ -484,22 +484,28 @@ class PogemaLifeLong(Pogema):
                     rewards.append(-1.0 * (battery / initial_battery))
                 else:
                     rewards.append(-1.0)
-            terminated.append(run_out_battery)
+            truncated.append(run_out_battery)
             if self.grid.on_goal(agent_idx):
                 self.grid.finishes_xy[agent_idx] = self._generate_new_target(agent_idx)
-
+        
+        #这里为了训练做处理
+        terminated = [False] * self.grid_config.num_agents
  
         for agent_idx in range(self.grid_config.num_agents):
             if self.grid.run_out_battery(agent_idx):
-                self.grid.hide_agent(agent_idx)
-                self.grid.is_active[agent_idx] = False
+                #注意这里的新操作是为了训练做的处理，实际环境中可能不需要
+                if self.grid_config.on_battery_death == 'training':
+                    self.grid.reset_battery_for_agent(agent_idx)
+                    self.grid.is_active[agent_idx] = True
+                else:
+                    self.grid.hide_agent(agent_idx)
+                    self.grid.is_active[agent_idx] = False
         
         infos = self._get_infos()
 
         observations = self._obs()
-
-        truncated = [False] * self.grid_config.num_agents
-        return observations, rewards, terminated, truncated, infos
+  
+        return observations, rewards, terminated, truncated, infos #reward need to be redefined in training framework
 
 
 class PogemaCoopFinish(Pogema):

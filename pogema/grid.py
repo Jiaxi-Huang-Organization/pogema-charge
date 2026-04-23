@@ -324,6 +324,8 @@ class Grid:
         return self.battery[agent_id]
     def get_initial_battery_for_agent(self, agent_id):
         return self.initial_battery[agent_id]
+    def reset_battery_for_agent(self, agent_id):
+        self.battery[agent_id] = self.initial_battery[agent_id]
     def is_active(self, agent_id):
         return self.is_active[agent_id]
 

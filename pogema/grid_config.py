@@ -9,6 +9,7 @@ from typing_extensions import Literal
 
 class GridConfig(CommonSettings, ):
     on_target: Literal['finish', 'nothing', 'restart'] = 'finish'
+    on_battery_death: Literal['training', 'eval'] = 'eval'
     seed: Optional[int] = None
     width: Optional[int] = None
     height: Optional[int] = None
